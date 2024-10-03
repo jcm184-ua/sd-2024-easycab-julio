@@ -5,8 +5,8 @@
 │   ├── central
 │   │   ├── crearBBDD.sql
 │   │   ├── database.db
-│   │   └── EC_Central.py
-│   ├── Dockerfile
+│   │   ├── EC_Central.py
+│   │   └── Dockerfile
 │   └── zookeeper-kafka
 │       └── compose.yml
 ├── customers
@@ -62,6 +62,6 @@ Topics que existen:
 - Conecta con EC_DE en el puerto (20200 +$id).
 
 # CUSTOMERS
-- **Conecta con KAFKA en el puerto 20000.
+- Conecta con KAFKA en el puerto 20000.
 - Recibe id como parámetro.
 
