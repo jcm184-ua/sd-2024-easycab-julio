@@ -48,7 +48,7 @@ Utilizamos zookeeper y kafka mediante docker.
 Topics que existen:
 - CLIENTES
 - MAPA
-- MOVIMIENTOS_TAXIS
+- MOVIMIENTOS_TAXIS (necesario?)
 - ESTADOS_TAXIS
 
 # TAXI
