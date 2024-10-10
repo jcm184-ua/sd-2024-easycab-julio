@@ -46,5 +46,5 @@ def main():
     # Menú para cambiar el estado
     cambiar_estado()
 
-if _name== "main_":
+if __name__ == "__main__":
     main()
