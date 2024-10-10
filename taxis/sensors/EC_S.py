@@ -2,6 +2,9 @@ import socket
 import threading
 import time
 
+HEADER = 64
+FORMAT = 'utf-8'
+
 # Variable global para el estado del sensor (True = OK, False = KO)
 estado = True
 
@@ -14,7 +17,13 @@ def manejar_socket(ec_de_ip, ec_de_port):
         
         while True:
             mensaje = "OK" if estado else "KO"
-            s.sendall(mensaje.encode('utf-8'))
+            message = mensaje.encode(FORMAT)
+            msg_length = len(message)
+            send_length = str(msg_length).encode(FORMAT)
+            send_length += b' ' * (HEADER - len(send_length))
+            s.send(send_length)
+            s.send(message)
+            #s.sendall(mensaje.encode('utf-8'))
             time.sleep(1)
 
 def cambiar_estado():
@@ -34,6 +43,7 @@ def cambiar_estado():
         time.sleep(1)  # Pequeño retardo para evitar spam en el menú
 
 def main():
+    # ESTO NO ES LINEA DE PARAMETROS
     # Dirección IP y puerto del EC_DE (proporcionados como argumentos de línea de comandos)
     ec_de_ip = input("Ingresa la IP del EC_DE: ")
     ec_de_port = input("Ingresa el puerto del EC_DE: ")
