@@ -3,7 +3,7 @@ import socket
 import threading
 
 def comprobarArgumentos(argumentos):
-    # print(sys.argv)
+    #print(sys.argv)
     if len(argumentos) != 8:
         print("CHECKS: ERROR EN EL NÚMERO DE ARGUMENTOS")
         exit()
@@ -29,18 +29,32 @@ def main():
 
     # Asignamos las constantes
     CENTRAL_IP = sys.argv[1]
-    CENTRAL_PORT = sys.argv[2]
+    CENTRAL_PORT = int(sys.argv[2])
     BROKER_IP = sys.argv[3]
-    BROKER_PORT = sys.argv[4]
+    BROKER_PORT = int(sys.argv[4])
     SENSOR_IP = sys.argv[5]  # IP para escuchar al sensor
-    SENSOR_PORT = sys.argv[6]  # Puerto para escuchar al sensor
+    SENSOR_PORT = int(sys.argv[6])  # Puerto para escuchar al sensor
     ID = sys.argv[7]
 
-    # Crear un hilo con socket servidor para escuchar a un EC_S
+    # Abrir un hilo con socket servidor para escuchar a un EC_S
     hilo_sensor = threading.Thread(target=manejar_sensor, args=(SENSOR_IP, SENSOR_PORT))
     hilo_sensor.start()
+    # esperar hasta que conecte un sensor para proseguir. Limitar a un máximo de un sensor
 
-    # Aquí puedes continuar con el resto de la lógica de EC_DE.py, como autenticación
+    # Abrir un hili socket cliente a main para autenticarse.
+    ADDR_CENTRAL = (CENTRAL_IP, CENTRAL_PORT)
 
-if _name_ == "_main_":
+    # Aqui central verificará que su id existe en la base de datos y que está desconectado
+    #                                               (garantizar que dos taxis no tienen mismo id)
+    # socket / autenticarse()
+    # una vez conectado el engine le dará la posición (por defecto x=1, y=1)
+
+    # Permanecer a la espera de lo que se publica en el topic MOVIMIENTOS_TAXIS
+    # Actualizar el mapa con topic MAPA
+
+    # cuando reciba una solicitud de servicio moverse hacia alli con mover(origenx, origeny, destinoX, destinoY)
+    # cuando tengas el mapa puedes diseñar la función moverse que vaya devolviendo los movimientos que te lleven a una posicion
+
+
+if __name__ == "__main__":
     main()
