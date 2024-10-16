@@ -1,7 +1,9 @@
 import sys
+import json
 import sqlite3
 import socket
 import threading
+from kafka import KafkaConsumer 
 
 HEADER = 64
 FORMAT = 'utf-8'
@@ -9,28 +11,42 @@ FORMAT = 'utf-8'
 taxisConectados = 0
 taxisLibres = 0
 
-# mirar PROGRAMACION CONCURRENTE
-
 def comprobarArgumentos(argumentos):
-    #print(sys.argv)
     if len(argumentos) != 4:
-        print("CHECKS: ERROR EN EL NÚMERO DE ARGUMENTOS")
+        print("CHECKS: ERROR LOS ARGUMENTOS. Necesito estos argumentos: <LISTEN_PORT> <BROKER_IP> <BROKER_PORT>")
         exit()
     print("INFO: Número de argumentos correcto.")
 
-def leerMapa():
-    if False:
-        print("CHECKS: ERROR DE MAPA")
-        exit
-    print("INFO: Mapa cargado con éxito.")
+def leerConfiguracionMapa():
+    try: 
+        with open('./EC_locations.json') as json_file:
+            data = json.load(json_file)
+            print("INFO: Mapa cargado con éxito.")
+            print (data)
+            # return data
+    except IOError as error:
+        print("FATAL: No se ha podido abrir el fichero.")
+        sys.exit()
+
 
 def abrirSocket(host, puertoEscucha):
-    #print("INFO: Abriendo socket de esucha en {0}, {1}.".format(host, puertoEscucha))
-    print("INFO: Abriendo socket de esucha en el puerto {0}.".format(puertoEscucha))
-    prueba = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    print("INFO: Abriendo socket de escuha en el puerto {0}.".format(puertoEscucha))
+    socketAbierto = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     THIS_ADDR = (host, puertoEscucha)
-    prueba.bind(THIS_ADDR)
-    return prueba
+    socketAbierto.bind(THIS_ADDR)
+    return socketAbierto
+
+def gestionarClientes(brokerHost, puertoEscucha):
+    print("INFO: Conectando al broker con IP {0} en el puerto {1}.".format(brokerHost, puertoEscucha))
+    #try:
+    consumidor = KafkaConsumer('CLIENTES',bootstrap_servers=brokerHost+':'+str(puertoEscucha)) # ,auto_offset_reset='earliest')
+    for mensaje in consumidor:
+        #print(mensaje)
+        print(mensaje.value.decode(FORMAT))
+    #except kafka.errors.NoBrokersAvailable as error:
+    #    print("FATAL: No se ha podido conectar con el broker")
+    #    print(error)
+    #    sys.exit()
 
 def modificarTaxisConectados(cambio):
     global taxisConectados
@@ -47,10 +63,8 @@ def autenticarTaxi(conexion, direccion):
     return True
 
 def gestionarTaxi(conexion, direccion):
-    #Autenticar taxi
     if autenticarTaxi(conexion, direccion):
         modificarTaxisLibres(1)
-        # Abrir un hilo que se encarge de leer los movimientos y actualizar el mapa a través del BROKER
         while True:
             msg_length = conexion.recv(HEADER).decode(FORMAT)
             if msg_length:
@@ -64,13 +78,10 @@ def gestionarTaxi(conexion, direccion):
                 modificarTaxisLibres(-1)
                 modificarTaxisConectados(-1)
                 break
-    #if (autenticar_taxi):
-    
-    
-    #else:
-    #print("INFO: Taxi con conexion {0} y {1} no autorizado. Desconectando..."
-    #    .format(conexion, direccion))
-    #conexion.close()
+    else:
+        print("INFO: Taxi con conexion {0} y {1} no autorizado. Desconectando..."
+            .format(conexion, direccion))
+        conexion.close()
 
 def iniciarServicio():
     print("INFO: Iniciando servicio del taxi n($id) al cliente n($id).")
@@ -90,12 +101,12 @@ def main():
     BROKER_PORT = int(sys.argv[3])
     ADDR_BROKER = (BROKER_IP, BROKER_PORT)
 
-    # TODO: por si ha crasheado, todos los taxis de la bbdd asignar desconectado.
+    # TODO: por si ha crasheado, todos los taxis de la bbdd asignar desconectado, posicion 0, 0
     
     # DBIP = sys.argv[4]
     # DBPORT = sys.argv[5]
 
-    leerMapa()
+    leerConfiguracionMapa()
 
     socketEscucha = abrirSocket(HOST, LISTEN_PORT)
     socketEscucha.listen()
@@ -113,6 +124,12 @@ def main():
         #denegar servicio
         #print("CENTRAL: Denegado servicio a cliente n($id) por falta de taxis.")
 
+    hiloClientes = threading.Thread(target=gestionarClientes, args=(BROKER_IP, BROKER_PORT))
+    hiloClientes.start()
+    # Hacer un hilo que gestione la cola de los clientes
+    # Hacer otro hilo que gestione la cola de los taxis 
+
+    # Bucle de gestión de taxis
     while True:
         #print("acabo de iterar")
         conexion, direccion = socketEscucha.accept()
