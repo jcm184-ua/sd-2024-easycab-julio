@@ -15,12 +15,12 @@
 ├── shared
 │   ├── gui.py
 │   └── mapa.py
-├── taxi
-│   ├── digital-engine
-│   │   └── EC_DE.py
-│   ├── Dockerfile
-│   └── sensors
-│       └── EC_S.py
+└── taxi
+    ├── digital-engine
+    │   └── EC_DE.py
+    ├── Dockerfile
+    └── sensors
+        └── EC_S.py
 ```
 # CORE
 ## CENTRAL
@@ -34,12 +34,21 @@ Tablas que encontramos:
 
 **taxis** (ejemplo de posible contenido)
 
-|id|estado      |posX|posY|
-|--|------------|----|----|
-|1 |esperando   |1   |1   |
-|2 |desconectado|    |    |
-|3 |servicio    |7   |10  |
-|4 |incidencia  |12  |3   |
+id|estado      |destino|posicion|
+--+------------+-------+--------+
+a |desconectado|"-,-"  |"-,-"   |
+b |desconectado|"-,-"  |"-,-"   |
+c |desconectado|"-,-"  |"-,-"   |
+d |desconectado|"-,-"  |"-,-"   |
+
+**clientes** (ejemplo de posible contenido)
+
+id|estado      |posicion|destino|
+--+------------+--------+-------+
+1 |esperando   |"-,-"   |"-,-"  |
+2 |desconectado|"-,-"   |"-,-"  |
+3 |desconectado|"-,-"   |"-,-"  |
+4 |desconectado|"-,-"   |"-,-"  |
 
 ## BROKER
 Utilizamos zookeeper y kafka mediante docker.
@@ -64,4 +73,14 @@ Topics que existen:
 # CUSTOMERS
 - Conecta con KAFKA en el puerto 20000.
 - Recibe id como parámetro.
+
+La comunicación con Central sera parecido a:
+
+EC_Customer publica en CLIENTES: "[C1_E][A]" (Solicito servicio a A)
+EC_Engine responde con:
+    "[E_C1][OK]"
+    "[E_C1][KO]"
+Más adelante, EC_Engine comunica el fin del servicio con:
+    "[E_C1][EXITO]"
+    "[E_C1][FRACASO]"
 
