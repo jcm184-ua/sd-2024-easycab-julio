@@ -3,9 +3,8 @@ import socket
 import threading
 
 def comprobarArgumentos(argumentos):
-    #print(sys.argv)
     if len(argumentos) != 8:
-        print("CHECKS: ERROR EN EL NÚMERO DE ARGUMENTOS")
+        print("CHECKS: ERROR LOS ARGUMENTOS. Necesito estos argumentos: <CENTRAL_IP> <CENTRAL_PORT> <BROKER_IP> <BROKER_PORT> <SENSOR_IP> <SENSOR_PORT> <ID>")
         exit()
     print("INFO: Número de argumentos correcto.")
 
@@ -32,7 +31,7 @@ def main():
     CENTRAL_PORT = int(sys.argv[2])
     BROKER_IP = sys.argv[3]
     BROKER_PORT = int(sys.argv[4])
-    SENSOR_IP = sys.argv[5]  # IP para escuchar al sensor
+    SENSOR_IP = sys.argv[5]  # IP para escuchar al sensor (Innecesario?)
     SENSOR_PORT = int(sys.argv[6])  # Puerto para escuchar al sensor
     ID = sys.argv[7]
 

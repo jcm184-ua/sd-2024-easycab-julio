@@ -10,7 +10,7 @@ FORMAT = 'utf-8'
 
 def comprobarArgumentos(argumentos):
     if len(argumentos) != 4:
-        print("CHECKS: ERROR EN EL NÚMERO DE ARGUMENTOS")
+        print("CHECKS: ERROR LOS ARGUMENTOS. Necesito estos argumentos: <BROKER_IP> <BROKER_PORT> <ID>")
         exit()
     print("INFO: Número de argumentos correcto.")
 
