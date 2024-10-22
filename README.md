@@ -89,10 +89,16 @@ Topics que existen:
 
 La comunicación con Central sera parecido a:
 
-EC_Customer publica en CLIENTES: "[C1_E][A]" (Solicito servicio a A)
+EC_Customer publica en CLIENTES:
+
+- "[EC_DE1->C][A]" (Solicito servicio a A)
+
 EC_Engine responde con:
-"[E_C1][OK]"
-"[E_C1][KO]"
+
+- "[EC_C->EC_DE1][OK]"
+- "[EC_C->EC_DE1][KO]"
+
 Más adelante, EC_Engine comunica el fin del servicio con:
-"[E_C1][EXITO]"
-"[E_C1][FRACASO]"
+
+- "[EC_C->EC_DE1][EXITO]"
+- "[EC_C->EC_DE1][FRACASO]"
