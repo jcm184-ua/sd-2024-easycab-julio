@@ -1,3 +1,4 @@
 *.db
 .vscode
 *.nix
+__pycache__
