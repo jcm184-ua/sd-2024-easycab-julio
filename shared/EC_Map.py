@@ -30,7 +30,7 @@ class Map:
             print(f"{COLORES_ANSII.BACKGROUD_BLUE}{valor[1]}{COLORES_ANSII.ENDC}")
     """
 
-    def display(self):
+    def print(self):
         print("MAPA:")
         keys = self.diccionarioPosiciones.keys()
         for i in range(1, SIZE+1):
@@ -65,23 +65,23 @@ class Map:
 def main():
     map = Map()
 
-    map.display()
+    map.print()
 
     map.diccionarioPosiciones.update({"(2,3)" : ('taxi',1)})
     map.diccionarioPosiciones.update({"(8,2)" : ('taxi', 2)})
     map.diccionarioPosiciones.update({"(3,5)" : ('cliente','d')})
     map.diccionarioPosiciones.update({"(9,15)" : ('localizacion','A')})
     map.diccionarioPosiciones.update({"(14,7)" : ('localizacion','C')})
-    map.display()
+    map.print()
 
     pruebaJson = map.exportJson()
     print(pruebaJson)
 
     map.clear()
-    map.display()
+    map.print()
 
     map.loadJson(pruebaJson)
-    map.display()
+    map.print()
 
 
 
