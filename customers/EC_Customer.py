@@ -2,11 +2,17 @@
 # puedehacer el main, comprobarArgumentos, conexion al brocker y escritura en ella
 
 import sys
-import socket
+import time
 from kafka import KafkaProducer
 from kafka import KafkaConsumer
+import re
 
 FORMAT = 'utf-8'
+
+BROKER_IP = None
+BROKER_PORT = None
+BROKER_ADDR = None
+ID = None
 
 def comprobarArgumentos(argumentos):
     if len(argumentos) != 4:
@@ -14,65 +20,87 @@ def comprobarArgumentos(argumentos):
         exit()
     print("INFO: Número de argumentos correcto.")
 
-def leerServicios(servicios):
-    # Leer
-    servicios.append("<20,10>")
-    servicios.append("<7,12>")
-    servicios.append("<15,4>")
+def asignarConstantes(argumentos):
+    global BROKER_IP
+    BROKER_IP = argumentos[1]
+    global BROKER_PORT
+    BROKER_PORT = int(argumentos[2])
+    global BROKER_ADDR
+    BROKER_ADDR = BROKER_IP+":"+str(BROKER_PORT)
+    global ID
+    ID = argumentos[3]
+    print("INFO: Constantes asignadas")
 
-def conectarBrokerProductor(BROKER_IP, BROKER_PORT):
-    CONEXION = BROKER_IP+':'+BROKER_PORT
-    print("INFO: Voy a conectarme al broker como productor.")
-    return KafkaProducer(bootstrap_servers=CONEXION)
+def leerServicios():
+    # TODO: Leer fichero
+    servicios = []
+    servicios.append("E")
+    servicios.append("A")
+    servicios.append("D")
+    return servicios
 
-def conectarBrokerConsumidor(BROKER_IP, BROKER_PORT):
-    CONEXION = BROKER_IP+':'+BROKER_PORT
-    print("INFO: Voy a conectarme al broker como consumidor.")
+def publicarMensaje(mensaje):
+    global BROKER_ADDR
+    print(f"INFO: Conectando al broker en la dirección ({BROKER_ADDR}) como productor.")
+    conexion = KafkaProducer(bootstrap_servers=BROKER_ADDR)
+    conexion.send('CLIENTES',(mensaje.encode(FORMAT)))
+    print(f"INFO: Mensaje {mensaje} publicado.")
+    # TODO: Fallo de publicación.
+    conexion.close()
+    print("INFO: Desconectado del broker como productor.")
+
+def conectarBrokerConsumidor():
+    global BROKER_ADDR
+    print(f"INFO: Conectando al broker en la dirección ({BROKER_ADDR}) como consumidor.")
     # return KafkaConsumer('CLIENTES',bootstrap_servers=CONEXION,auto_offset_reset='earliest')
-    return KafkaConsumer('CLIENTES',bootstrap_servers=CONEXION)
+    return KafkaConsumer('CLIENTES',bootstrap_servers=BROKER_ADDR)
 
-def solicitarServicio(servicio, conexionProductor, conexionConsumidor):
-    print("INFO: Procedo a solicitar el servicio {0}".format(servicio))
-    conexionProductor.send('CLIENTES',servicio.encode(FORMAT))
-    for message in conexionConsumidor:
-        #print(message)
-        #Si me aceptan
-        if True:
-            print("INFO: Me han aceptado el servicio.")
-            realizarServicio(servicio, conectarBrokerConsumidor)
-        else:
-            print("INFO: Me han denegado el servicio.")
+def esperarMensaje():
+    conexion = conectarBrokerConsumidor()
+    for mensaje in conexion:
+        print(f"DEBUG: Mensaje recibido: {mensaje.value.decode(FORMAT)}")
+        camposMensaje = re.findall('[^\[\]]+', mensaje.value.decode(FORMAT))
+        if camposMensaje[0] == f"EC_Central->EC_Customer_{ID}":
+            conexion.close()
+            print("INFO: Desconectado del broker como consumidor.")
+            return camposMensaje[1]
 
+def evaluarMensaje(mensajeRecibido):
+    if mensajeRecibido == "OK":
+        return True
+    elif mensajeRecibido == "KO":
+        return False
+    else:
+        pass
+        #TODO: Gestionar error
+
+def solicitarServicio(servicio):
+    print(f"INFO: Procedo a solicitar el servicio {servicio}")
+    publicarMensaje(f"[EC_Customer_{ID}->EC_Central][{servicio}]") # (Solicitar servicio
     
-def realizarServicio(servicio, conexionConsumidor):
-    #cuando me encuentre en casilla deseada o me notifiquen que ha terminado
-    return True
-    
+    mensajeRecibido = esperarMensaje()
+
+    if evaluarMensaje(mensajeRecibido):
+        print("INFO: Me han aceptado y completado el servicio.")
+    else:
+        print("INFO: Me han denegado o cancelado el servicio.")    
 
 def main():
     comprobarArgumentos(sys.argv)
+    asignarConstantes(sys.argv)
+    print(f"INFO: BROKER_IP={BROKER_IP}, BROKER_PORT = {BROKER_PORT}, ID={ID}.")
 
-    # Asignamos las constantes
-    BROKER_IP = sys.argv[1]
-    BROKER_PORT = sys.argv[2]
-    ID = int(sys.argv[3])
-    print("INFO: BROKER_IP={0}, BROKER_PORT = {1}, ID={2}.".format(BROKER_IP, BROKER_PORT, ID))
+    servicios = leerServicios()
 
-    servicios = []
+    #conexionProductor = conectarBrokerProductor(BROKER_IP, BROKER_PORT)
+    #conexionConsumidor = conectarBrokerConsumidor(BROKER_IP, BROKER_PORT)
 
-    leerServicios(servicios)
-
-    conexionProductor = conectarBrokerProductor(BROKER_IP, BROKER_PORT)
-    conexionConsumidor = conectarBrokerConsumidor(BROKER_IP, BROKER_PORT)
-
-    # ¿Comprobar la conexión, brocker puede caer?
+    # TODO: ¿Comprobar la conexión, brocker puede caer?
     for servicio in servicios:
-        solicitarServicio(servicio, conexionProductor, conexionConsumidor)
+        solicitarServicio(servicio)
         print("INFO: Esperando 4 segundos...")
-        sleep(4)
-    print("INFO: He realizado todos los servicios que deseaba. Saliendo...")
-    # CERRAR LAS CONEXIONES AL BROKER
-
+        time.sleep(4)
+    print("INFO: He realizado todos los servicios que deseaba. Finalizando ejecución...")
 
 if __name__ == "__main__":
     main()
