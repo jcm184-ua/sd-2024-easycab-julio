@@ -1,4 +1,5 @@
 import sys
+import time
 import json
 import re
 import sqlite3
@@ -9,8 +10,20 @@ from kafka import KafkaConsumer, KafkaProducer
 HEADER = 64
 FORMAT = 'utf-8'
 
+HOST = "" # Simbólico, nos permite escuchar en todas las interfaces de red
+LISTEN_PORT = None
+THIS_ADDR = None
+BROKER_IP = None
+BROKER_PORT = None
+BROKER_ADDR = None
+TOPIC_CLIENTES = 'CLIENTES'
+TOPIC_TAXIS = 'TAXIS'
+
+diccionarioLocalizaciones = {}
 taxisConectados = 0
 taxisLibres = 0
+nuevoTaxisConectados = [1, 2, 3, 5]
+nuevoTaxisLibres = [2, 3]
 
 def comprobarArgumentos(argumentos):
     if len(argumentos) != 4:
@@ -18,53 +31,118 @@ def comprobarArgumentos(argumentos):
         exit()
     print("INFO: Número de argumentos correcto.")
 
+def asignarConstantes(argumentos):
+    # Asignamos las constantes
+    global HOST
+    global LISTEN_PORT
+    LISTEN_PORT = int(argumentos[1])
+    global THIS_ADDR
+    THIS_ADDR =  (HOST, LISTEN_PORT)
+    global BROKER_IP
+    BROKER_IP = argumentos[2]
+    global BROKER_PORT
+    BROKER_PORT = int(argumentos[3])
+    global BROKER_ADDR
+    BROKER_ADDR = BROKER_IP+":"+str(BROKER_PORT)
+    print("INFO: Constantes asignadas")
+
 def leerConfiguracionMapa():
+    global diccionarioLocalizaciones
     try:
         with open('./EC_locations.json') as json_file:
-            data = json.load(json_file)
+            jsonLocalizaciones = json.load(json_file)
+            for key in jsonLocalizaciones:
+                value = jsonLocalizaciones[key]
+                for item in value:
+                    print(f"INFO: Cargada localización {item['Id']} con coordenadas ({item['POS']}).")
+                    diccionarioLocalizaciones.update({item['Id'] : item['POS']})
+                    
+            #print(diccionarioLocalizaciones)
             print("INFO: Mapa cargado con éxito.")
-            print (data)
-            # return data
     except IOError as error:
         print("FATAL: No se ha podido abrir el fichero.")
         sys.exit()
 
-def abrirSocket(host, puertoEscucha):
-    print("INFO: Abriendo socket de escuha en el puerto {0}.".format(puertoEscucha))
+def abrirSocket():
+    global THIS_ADDR
+    #print("INFO: Abriendo socket de escucha en el puerto {0}.".format(LISTEN_PORT))
+    print(f"INFO: Abriendo socket de escucha en la dirección {THIS_ADDR}.")
     socketAbierto = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    THIS_ADDR = (host, puertoEscucha)
     socketAbierto.bind(THIS_ADDR)
     return socketAbierto
 
-def gestionarClientes(brokerHost, puertoEscucha):
-    print("INFO: Conectando al broker con IP {0} en el puerto {1}.".format(brokerHost, puertoEscucha))
-    #try:
-    consumidor = KafkaConsumer('CLIENTES',bootstrap_servers=brokerHost+':'+str(puertoEscucha)) # ,auto_offset_reset='earliest')
-    productor = KafkaProducer(bootstrap_servers=brokerHost+':'+str(puertoEscucha))
+def publicarMensaje(mensaje, topic):
+    global BROKER_ADDR
+    print(f"INFO: Conectando al broker en la dirección ({BROKER_ADDR}) como productor.")
+    conexion = KafkaProducer(bootstrap_servers=BROKER_ADDR)
+    conexion.send(topic,(mensaje.encode(FORMAT)))
+    print(f"INFO: Mensaje {mensaje} publicado.")
+    # TODO: Fallo de publicación.
+    conexion.close()
+    print("INFO: Desconectado del broker como productor.")
+
+def gestionarClientes():
+    global BROKER_ADDR
+    print(f"INFO: Conectando al broker en la dirección ({BROKER_ADDR}) como consumidor CLIENTES.")
+    #TODO: try:
+    consumidor = KafkaConsumer(TOPIC_CLIENTES,bootstrap_servers=BROKER_ADDR) # ,auto_offset_reset='earliest')
 
     for mensaje in consumidor:
-        cabecera = re.findall('[^\[\]]+', mensaje.value.decode(FORMAT))
-        #print(cabecera)
+        camposMensaje = re.findall('[^\[\]]+', mensaje.value.decode(FORMAT))
+        print(camposMensaje)
         #print(mensaje)
-        if cabecera[0].startswith("EC_C"):
+        if camposMensaje[0].startswith("EC_Central"):
+            #Nuestros propios mensajes
             pass
-        elif cabecera[0].startswith("EC_DE"):
-            numeroCliente = cabecera[0].split("->")[0][5:]
-            destino = cabecera[1]
-            print("INFO: Solicitud de servicio del cliente {0} recibido. Destino: {1}.".format(numeroCliente, destino))
-            if taxisLibres > 0:
-                modificarTaxisLibres(-1)
-                taxi = obtenerTaxiLibre()
-                asignarServicio(taxi, numeroCliente, destino)
-                print("INFO: Servicio del cliente {0} asignado al taxi n({1}).".format(numeroCliente, taxi))
-                productor.send('CLIENTES',("[EC_C->EC_DE"+numeroCliente+"][OK]").encode(FORMAT))
+        elif camposMensaje[0].startswith("EC_Customer"):
+            # ['EC_Customer-a->EC_Central', 'E']
+            idCliente = camposMensaje[0].split("->")[0][12:]
+            localizacion = camposMensaje[1]
+            print(f"INFO: Solicitud de servicio recibida, cliente {idCliente}, destino {localizacion}.")
+
+            global diccionarioLocalizaciones
+            if localizacion not in diccionarioLocalizaciones:
+                print(f"ERROR: La localización {localizacion} no existe. Cancelando servicio a cliente {idCliente}")
+                publicarMensaje("EC_Central->EC_Customer_{idCliente}[KO]", TOPIC_CLIENTES)
             else:
-                print("INFO: Denegado servicio al cliente {0} por falta de taxis.".format(numeroCliente))
-                productor.send('CLIENTES',("[EC_C->EC_DE"+numeroCliente+"][KO]").encode(FORMAT))
+                global nuevoTaxisLibres
+                if len(nuevoTaxisLibres) > 0:
+                    taxiElegido = nuevoTaxisLibres.pop()
+                    print(f"INFO: Asignando servicio del cliente {idCliente} al taxi {taxiElegido}.")
+                    asignarServicio(taxiElegido, idCliente, localizacion)
         else:
-            print(mensaje)
-            print(mensaje.value.decode(FORMAT))
-            print("INFO: Mensaje desconocido recibido: {0}".format(mensaje.value.decode(FORMAT)))
+            #print(mensaje)
+            #print(mensaje.value.decode(FORMAT))
+            print(f"ERROR: Mensaje desconocido recibido en {TOPIC_CLIENTES} : {mensaje.value.decode(FORMAT)}.")
+    #except kafka.errors.NoBrokersAvailable as error:
+    #    print("FATAL: No se ha podido conectar con el broker")
+    #    print(error)
+    #    sys.exit()
+
+def gestionarTaxis():
+    global BROKER_ADDR
+    print(f"INFO: Conectando al broker en la dirección ({BROKER_ADDR}) como consumidor TAXIS.")
+    #TODO: try:
+    consumidor = KafkaConsumer(TOPIC_TAXIS,bootstrap_servers=BROKER_ADDR) # ,auto_offset_reset='earliest')
+
+    for mensaje in consumidor:
+        camposMensaje = re.findall('[^\[\]]+', mensaje.value.decode(FORMAT))
+        print(camposMensaje)
+        #print(mensaje)
+        if camposMensaje[0].startswith("EC_Central"):
+            #Nuestros propios mensajes
+            pass
+        elif camposMensaje[0].startswith("EC_DigitalEngine"):
+            # ['EC_DigitalEngine-1->EC_Central', '(1,2)']
+            idTaxi = camposMensaje[0].split("->")[0][17:]
+            posX = camposMensaje[1].split(",")[0][1:]
+            posY = camposMensaje[1].split(",")[1][:1]
+            print(f"INFO: Posición ({posX},{posY}) recibida del taxi {idTaxi}.")
+            # TODO: Actualizar el mapa de todos los taxis
+        else:
+            #print(mensaje)
+            #print(mensaje.value.decode(FORMAT))
+            print(f"ERROR: Mensaje desconocido recibido en {TOPIC_TAXIS} : {mensaje.value.decode(FORMAT)}.")
     #except kafka.errors.NoBrokersAvailable as error:
     #    print("FATAL: No se ha podido conectar con el broker")
     #    print(error)
@@ -84,12 +162,10 @@ def autenticarTaxi(conexion, direccion):
     #El taxi mandará su id, consultaremos la bbdd, si aparece y no estuviera ya conectado
     return True
 
-def obtenerTaxiLibre():
-    #Iteramos sobre los taxis que disponemos con la info de la bbdd, buscamos el más cercano y lo despachamos.
-    return 1
-
 def gestionarTaxi(conexion, direccion):
     if autenticarTaxi(conexion, direccion):
+        # TODO: RECIBIR ID Y AÑADIRLO A LA LISTA
+        modificarTaxisConectados(+1)
         modificarTaxisLibres(1)
         #Añadir taxi disponible a la bbdd
         conexionBBDD = sqlite3.connect('taxis.db')
@@ -116,40 +192,27 @@ def gestionarTaxi(conexion, direccion):
             .format(conexion, direccion))
         conexion.close()
 
-def asignarServicio(cliente, destino):
+def asignarServicio(taxi, cliente, localizacion):
+    time.sleep(0.5) # Evitar que se termine el servicio antes de que el cliente lo pueda leer
+    # El cliente nos importa?
+    # Donde está el cliente?    
+    print(f"INFO: Servicio  {cliente}, {localizacion} finalizado por {taxi}")
+    publicarMensaje(f"EC_Central->EC_Customer_{cliente}[OK]", TOPIC_CLIENTES)
 
-    print("INFO: Iniciando servicio del taxi n($id) al cliente n($id).")
-    #Iteramos sobre los taxis que disponemos con la info de la bbdd, buscamos el más cercano y lo despachamos.
-    print("DESARROLLO: Servicio finalizado.")
-    servicioFinalizado()
-
-def servicioFinalizado():
-    print("INFO: Servicio del taxi n($id) al cliente n($id) finalizado.")
-    modificarTaxisLibres(+1)
+    global nuevoTaxisLibres
+    nuevoTaxisLibres.append(taxi)
 
 def main():
     comprobarArgumentos(sys.argv)
-
-    # Asignamos las constantes
-    HOST = "" # Simbólico, nos permite escuchar en todas las interfaces de red
-    LISTEN_PORT = int(sys.argv[1])
-    BROKER_IP = sys.argv[2]
-    BROKER_PORT = int(sys.argv[3])
-    ADDR_BROKER = (BROKER_IP, BROKER_PORT)
-
-    # TODO: por si ha crasheado, todos los taxis de la bbdd asignar desconectado, posicion 0, 0
-
-    # DBIP = sys.argv[4]
-    # DBPORT = sys.argv[5]
-
+    asignarConstantes(sys.argv)
     leerConfiguracionMapa()
 
-    socketEscucha = abrirSocket(HOST, LISTEN_PORT)
+    #TODO: Popular base de datos en arranque o ver si habíamos crasheado
+
+    socketEscucha = abrirSocket()
     socketEscucha.listen()
 
     print("INFO: Entrando al bucle de ejecución...")
-
-    #modificarTaxisLibres(taxisLibres, 2)
 
     # Crear hilo que se encarga de leer peticiones de clientes y les asigna su taxi.
         # dentro: ocurre una llamada de un cliente
@@ -160,8 +223,13 @@ def main():
         #denegar servicio
         #print("CENTRAL: Denegado servicio a cliente n($id) por falta de taxis.")
 
-    hiloClientes = threading.Thread(target=gestionarClientes, args=(BROKER_IP, BROKER_PORT))
+    hiloClientes = threading.Thread(target=gestionarClientes)
     hiloClientes.start()
+    hiloTaxis = threading.Thread(target=gestionarTaxis)
+    hiloTaxis.start()
+
+    #hiloTaxis = threading.Thread(target=gestionarTaxis)
+
     # Hacer un hilo que gestione la cola de los clientes
     # Hacer otro hilo que gestione la cola de los taxis
 
@@ -169,7 +237,6 @@ def main():
     while True:
         #print("acabo de iterar")
         conexion, direccion = socketEscucha.accept()
-        modificarTaxisConectados(+1)
         hiloTaxi = threading.Thread(target=gestionarTaxi, args=(conexion, direccion))
         hiloTaxi.start()
 
