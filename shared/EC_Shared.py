@@ -45,10 +45,10 @@ def enviarMensajeCliente(socket, mensaje):
     socket.send(mensaje_codificado)
     print(f'INFO: Mensaje "{mensaje}" enviado a través de conexión {socket.getsockname()}.')
 
-def conectarBrokerConsumidor(broker_addr):
-    print(f"INFO: Conectando al broker en la dirección ({BROKER_ADDR}) como consumidor.")
+def conectarBrokerConsumidor(topic, broker_addr):
+    print(f"INFO: Conectando al broker en la dirección ({broker_addr}) como consumidor.")
     # return KafkaConsumer('CLIENTES',bootstrap_servers=CONEXION,auto_offset_reset='earliest')
-    return KafkaConsumer('CLIENTES',bootstrap_servers=BROKER_ADDR)
+    return KafkaConsumer(topic,bootstrap_servers=broker_addr)
 
 def publicarMensajeEnTopic(mensaje, topic, broker_addr):
     print(f"INFO: Conectando al broker en la dirección ({broker_addr}) como productor.")
