@@ -62,16 +62,30 @@ class Map:
 
     def clear(self):
         self.diccionarioPosiciones = {}
+        self.taxisActivos = []
 
     def exportJson(self):
         return json.dumps(self.diccionarioPosiciones)
 
+    def exportActiveTaxis(self):
+        return json.dumps(self.taxisActivos)
+
     def loadJson(self, jsonData):
-        print(jsonData)
         self.diccionarioPosiciones = json.loads(jsonData)
 
+    def loadActiveTaxis(self, jsonData):
+        self.taxisActivos = json.loads(jsonData)
+
+    def move(self, key, x, y):
+        initX = self.diccionarioPosiciones[key].split(",")[0]
+        initY = self.diccionarioPosiciones[key].split(",")[1]
+        destX = int(initX) + x
+        desrY = int(initY) + y
+        #TODO: Comprobar límites del mapa y "overflowear" si se sale
+        self.diccionarioPosiciones[key] = f"{int(int(initX) + x)},{int(int(initY) + y)}"
+        print(f"INFO: Movimiento realizado de {initX},{initY} a {destX},{desrY} para {key}")
+
     def getPosition(self, key):
-        print(f"DEBUG: getPosition. Key:'{key}'")
         try:
             self.diccionarioPosiciones[key]
             return self.diccionarioPosiciones[key]
@@ -81,31 +95,33 @@ class Map:
 
 # Ejemplo de uso
 def main():
-    map = Map()
+    mapa = Map()
 
-    map.print()
+    mapa.print()
 
-    map.diccionarioPosiciones.update({"taxi_1" : "2,3"})
-    map.taxisActivos = ["taxi_1"]
-    map.diccionarioPosiciones.update({"taxi_2" : "8,2"})
-    map.diccionarioPosiciones.update({"cliente_d" : "3,5"})
-    map.diccionarioPosiciones.update({"cliente_e" : "7,8"})
-    map.diccionarioPosiciones.update({"localizacion_A" : "9,15"})
-    map.diccionarioPosiciones.update({"localizacion_C" : "14,7"})
+    mapa.diccionarioPosiciones.update({"taxi_1" : "2,3"})
+    mapa.taxisActivos = ["taxi_1"]
+    mapa.diccionarioPosiciones.update({"taxi_2" : "8,2"})
+    mapa.diccionarioPosiciones.update({"cliente_d" : "3,5"})
+    mapa.diccionarioPosiciones.update({"cliente_e" : "7,8"})
+    mapa.diccionarioPosiciones.update({"localizacion_A" : "9,15"})
+    mapa.diccionarioPosiciones.update({"localizacion_C" : "14,7"})
 
-    map.print()
+    mapa.print()
 
-    map.diccionarioPosiciones.update({"localizacion_C" : "10,2"})
-    map.print()
+    mapa.diccionarioPosiciones.update({"localizacion_C" : "10,2"})
+    mapa.print()
 
-    pruebaJson = map.exportJson()
+    pruebaJson = mapa.exportJson()
+    pruebaJson2 = mapa.exportActiveTaxis()
     print(pruebaJson)
 
-    map.clear()
-    map.print()
+    mapa.clear()
+    mapa.print()
 
-    map.loadJson(pruebaJson)
-    map.print()
+    mapa.loadJson(pruebaJson)
+    mapa.loadActiveTaxis(pruebaJson2)
+    mapa.print()
 
 
 
