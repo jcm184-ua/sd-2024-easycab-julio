@@ -144,7 +144,7 @@ def mover(x, y):
         print("ERROR: Movimiento demasiado grande")
     else:
         print(f"INFO: Moviendo en dirección ({x},{y})")
-        publicarMensajeEnTopic(f"[EC_DigitalEngine_{ID}->EC_Central][({x},{y})]", TOPIC_TAXIS)
+        publicarMensajeEnTopic(f"[EC_DigitalEngine_{ID}->EC_Central][({x},{y})]", TOPIC_TAXIS, BROKER_ADDR)
 
 def movimientosAleatorios():
     while True:
