@@ -78,6 +78,12 @@ Topics que existen:
 - **Puerto de escucha utilizado:** (20200 +$id) Es decir, taxi 1 con sensor 1 en el 20201, taxi 2 con el sensor 2 en el 20202, etc...
 - Recibe id como parámetro.
 
+Cuando se conecta a la central, una vez autenticado, la central le mandará el estado del mapa
+en el momento de su conexión a través del broker.
+
+Quedará a la espera de las solicitudes de servicio, información de posición, y actualizaciones
+del mapa a través del broker.
+
 ## SENSORS
 
 - Conecta con EC_DE en el puerto (20200 +$id).
