@@ -15,6 +15,8 @@ class COLORES_ANSII:
 class Map:
     diccionarioPosiciones = {}
 
+    # TODO: Añadir aqui las localizaciones
+
     """def __init__(self):
         self.diccionarioPosiciones = {}"""
 
@@ -37,14 +39,15 @@ class Map:
             print("-" * int(((0.5+SIZE) * 4 - 1)))
             print("|", end="")
             for j in range(1, SIZE+1):
-                if f"({i},{j})" in keys:
-                    value = self.diccionarioPosiciones[f"({i},{j})"]
-                    if value[0] == 'taxi':
-                        print(f"{COLORES_ANSII.BACKGROUD_GREEN} {value[1]} {COLORES_ANSII.ENDC}", end="")
-                    elif value[0] == 'cliente':
-                        print(f"{COLORES_ANSII.BACKGROUD_YELLOW} {value[1]} {COLORES_ANSII.ENDC}", end="")
-                    elif value[0] == 'localizacion':
-                        print(f"{COLORES_ANSII.BACKGROUD_BLUE} {value[1]} {COLORES_ANSII.ENDC}", end="")
+                for key, value in self.diccionarioPosiciones.items():
+                    if value == f"{i},{j}":
+                        if key.startswith('taxi'):
+                            print(f"{COLORES_ANSII.BACKGROUD_GREEN} {key[5:]} {COLORES_ANSII.ENDC}", end="")
+                        elif key.startswith('cliente'):
+                            print(f"{COLORES_ANSII.BACKGROUD_YELLOW} {key[8:]} {COLORES_ANSII.ENDC}", end="")
+                        elif key.startswith('localizacion'):
+                            print(f"{COLORES_ANSII.BACKGROUD_BLUE} {key[13:]} {COLORES_ANSII.ENDC}", end="")
+                        break
                 else:
                     print("   ", end="")
                 print("|", end="")
@@ -67,11 +70,13 @@ def main():
 
     map.print()
 
-    map.diccionarioPosiciones.update({"(2,3)" : ('taxi',1)})
-    map.diccionarioPosiciones.update({"(8,2)" : ('taxi', 2)})
-    map.diccionarioPosiciones.update({"(3,5)" : ('cliente','d')})
-    map.diccionarioPosiciones.update({"(9,15)" : ('localizacion','A')})
-    map.diccionarioPosiciones.update({"(14,7)" : ('localizacion','C')})
+    map.diccionarioPosiciones.update({"taxi_1" : "2,3"})
+    map.diccionarioPosiciones.update({"taxi_2" : "8,2"})
+    map.diccionarioPosiciones.update({"cliente_d" : "3,5"})
+    map.diccionarioPosiciones.update({"cliente_e" : "7,8"})
+    map.diccionarioPosiciones.update({"localizacion_A" : "9,15"})
+    map.diccionarioPosiciones.update({"localizacion_C" : "14,7"})
+
     map.print()
 
     pruebaJson = map.exportJson()
