@@ -39,6 +39,13 @@ def recibirMensajeServidor(conexion):
         print(f"INFO: Mensaje '{mensaje}' recibido a través de la conexión {conexion.getpeername()}.")
         return mensaje
 
+def recibirMensajeServidorSilent(conexion):
+    longitud_mensaje = conexion.recv(HEADER).decode(FORMAT)
+    if longitud_mensaje:
+        longitud_mensaje = int(longitud_mensaje)
+        mensaje = conexion.recv(longitud_mensaje).decode(FORMAT)
+        return mensaje
+
 def enviarMensajeCliente(socket, mensaje):
     mensaje_codificado = mensaje.encode(FORMAT)
     longitud_mensaje = len(mensaje_codificado)
@@ -54,6 +61,13 @@ def recibirMensajeCliente(conexion):
         longitud_mensaje = int(longitud_mensaje)
         mensaje = conexion.recv(longitud_mensaje).decode(FORMAT)
         print(f"INFO: Mensaje '{mensaje}' recibido a través de la conexión {conexion.getsockname()}.")
+        return mensaje
+
+def recibirMensajeClienteSilent(conexion):
+    longitud_mensaje = conexion.recv(HEADER).decode(FORMAT)
+    if longitud_mensaje:
+        longitud_mensaje = int(longitud_mensaje)
+        mensaje = conexion.recv(longitud_mensaje).decode(FORMAT)
         return mensaje
 
 def conectarBrokerConsumidor(broker_addr, topic):
