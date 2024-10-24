@@ -98,53 +98,33 @@ def gestionarSensor(conexion, direccion):
             else:
                 print(f"ERROR: MENSAJE DESCONOCIDO: {mensaje}")
 
-def gestionarSocketCentral():
-    socketCentral = abrirSocketCliente(CENTRAL_ADDR)
-    print("INFO: Intentando autenticar en central")
-    
+def gestionarConexionCentral():
     while True:
-        enviarMensajeCliente(socketCentral, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST]")
-        time.sleep(5)
-
-
-    while True:
-        mensaje = recibirMensajeCliente(conexion)
-        if mensaje == None:
-            print(f"INFO: Conexión con el servidor {direccion} perdida.")
-            break
-        else:
-            print(f"INFO: Mensaje del sensor {direccion} recibido: {mensaje}")
-            if mensaje == "OK":
-                estadoSensor = True
-            elif mensaje == "KO":
-                estadoSensor = False
-            else:
-                print(f"ERROR: MENSAJE DESCONOCIDO: {mensaje}")
-
-    while True:
-        msg_length = conexion.recv(HEADER).decode(FORMAT)
-        if msg_length:
-            msg_length = int(msg_length)
-            msg = conexion.recv(msg_length).decode(FORMAT)
-            print(f"INFO: Mensaje del sensor {direccion} recibido: {msg}")
-            if msg == "OK":
-                estadoSensor = True
-            elif msg == "KO":
-                estadoSensor = False
-            else:
-                print("ERROR: Mensaje desconocido")
-        else:
-            # El socket se ha desconectado
-            print(f"INFO: Conexión con el sensor {direccion} perdida.")
-            modificarSensoresConectados(-1)
-            break
-
-
-def publicarMensaje(mensaje, topic):
-    print(f"INFO: Conectando al broker en la dirección ({BROKER_ADDR}) como productor.")
-    conexion = KafkaProducer(bootstrap_servers=BROKER_ADDR)
-    conexion.send(topic,(mensaje.encode(FORMAT)))
-    print(f"INFO: Mensaje {mensaje} publicado.")
+        try:
+            socket = abrirSocketCliente(CENTRAL_ADDR)
+            print("INFO: Intentando autenticar en central")
+            enviarMensajeCliente(socket, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST]")
+            time.sleep(5)
+            while True:
+                mensaje = recibirMensajeCliente(socket)
+                if mensaje == None:
+                    print(f"INFO: Mensaje vacio. ¿Conexión con el servidor {socket} perdida.?")
+                    break
+                else:
+                    print(f"INFO: Mensaje del servidor {socket} recibido: {mensaje}")
+                    if mensaje == f"[EC_Central->EC_DE_{ID}][AUTHORIZED]":
+                        print("INFO: Autenticación correcta")
+                        hiloMovimientosAleatorios = threading.Thread(target=movimientosAleatorios)
+                        hiloMovimientosAleatorios.start()
+                    elif mensaje == f"[EC_Central->EC_DE_{ID}][NOT_AUTHORIZED]":
+                        print("ERROR: Autenticación incorrecta")
+                        exit()
+                    else:
+                        print(f"ERROR: MENSAJE DESCONOCIDO: {mensaje}")
+        except Exception as e:
+            print(f"WARNING: SOCKET CAIDO: {e}.")
+            time.sleep(3)
+            print(f"INFO: Reintentando conexión...")
 
 def gestionarBroker():
     print(f"INFO: Conectando al broker en la dirección ({BROKER_ADDR}) como consumidor.")
@@ -165,7 +145,7 @@ def mover(x, y):
         print("ERROR: Movimiento demasiado grande")
     else:
         print(f"INFO: Moviendo en dirección ({x},{y})")
-        publicarMensaje(f"[EC_DigitalEngine_{ID}->EC_Central][({x},{y})]", TOPIC_TAXIS)
+        publicarMensajeEnTopic(f"[EC_DigitalEngine_{ID}->EC_Central][({x},{y})]", TOPIC_TAXIS)
 
 def movimientosAleatorios():
     while True:
@@ -181,14 +161,11 @@ def main():
     hiloSocketSensores = threading.Thread(target=gestionarSocketSensores)
     hiloSocketSensores.start()
 
-    hiloSocketCentral = threading.Thread(target=gestionarSocketCentral)
+    hiloSocketCentral = threading.Thread(target=gestionarConexionCentral)
     hiloSocketCentral.start()
 
     hiloBroker = threading.Thread(target=gestionarBroker)
     hiloBroker.start()
-
-    hiloMovimientosAleatorios = threading.Thread(target=movimientosAleatorios)
-    hiloMovimientosAleatorios.start()
 
     # cuando reciba una solicitud de servicio moverse hacia alli con mover(origenx, origeny, destinoX, destinoY)
     # cuando tengas el mapa puedes diseñar la función moverse que vaya devolviendo los movimientos que te lleven a una posicion
