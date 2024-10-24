@@ -7,6 +7,8 @@ FORMAT = 'utf-8'
 def abrirSocketServidor(socket_addr):
     print(f"INFO: Abriendo socket servidor en la dirección {socket_addr}.")
     socketAbierto = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # Evitar "OSError: [Errno 98] Address already in use" al matar y relanzar el servidor.
+    socketAbierto.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     socketAbierto.bind(socket_addr)
     return socketAbierto
 
@@ -32,9 +34,6 @@ def recibirMensajeServidor(conexion):
         mensaje = conexion.recv(longitud_mensaje).decode(FORMAT)
         print(f"INFO: Mensaje '{mensaje}' recibido a través de la conexión {conexion.getpeername()}.")
         return mensaje
-    #else:
-    #    print(f"ERROR SHARED: MENSAJE VACIO, CONEXION PERDIDA.")
-    #    return None
 
 def enviarMensajeCliente(socket, mensaje):
     mensaje_codificado = mensaje.encode(FORMAT)
@@ -45,10 +44,18 @@ def enviarMensajeCliente(socket, mensaje):
     socket.send(mensaje_codificado)
     print(f'INFO: Mensaje "{mensaje}" enviado a través de conexión {socket.getsockname()}.')
 
-def conectarBrokerConsumidor(broker_addr):
-    print(f"INFO: Conectando al broker en la dirección ({BROKER_ADDR}) como consumidor.")
+def recibirMensajeCliente(conexion):
+    longitud_mensaje = conexion.recv(HEADER).decode(FORMAT)
+    if longitud_mensaje:
+        longitud_mensaje = int(longitud_mensaje)
+        mensaje = conexion.recv(longitud_mensaje).decode(FORMAT)
+        print(f"INFO: Mensaje '{mensaje}' recibido a través de la conexión {conexion.getsockname()}.")
+        return mensaje
+
+def conectarBrokerConsumidor(broker_addr, topic):
+    print(f"INFO: Conectando al broker en la dirección ({broker_addr}), topic {topic} como consumidor.")
     # return KafkaConsumer('CLIENTES',bootstrap_servers=CONEXION,auto_offset_reset='earliest')
-    return KafkaConsumer('CLIENTES',bootstrap_servers=BROKER_ADDR)
+    return KafkaConsumer(topic,bootstrap_servers=broker_addr)
 
 def publicarMensajeEnTopic(mensaje, topic, broker_addr):
     print(f"INFO: Conectando al broker en la dirección ({broker_addr}) como productor.")
