@@ -63,7 +63,7 @@ def leerConfiguracionMapa():
 
     #TODO: JSON FILE DEL ULTIMO ESTADO DE LOS TAXIS
     mapa.diccionarioPosiciones.update({"taxi_1" : "2,3"})
-    mapa.taxisActivos = ["taxi_1"]
+    #mapa.taxisActivos = ["taxi_1"]
     mapa.diccionarioPosiciones.update({"taxi_2" : "8,2"})
     mapa.diccionarioPosiciones.update({"cliente_d" : "3,5"})
     mapa.diccionarioPosiciones.update({"cliente_e" : "7,8"})
@@ -156,7 +156,7 @@ def gestionarBrokerTaxis():
                 print(f"INFO: Movimiento ({posX},{posY}) recibido del taxi {idTaxi}.")
                 mapa.move(f"taxi_{idTaxi}", posX, posY)
                 mapa.print()
-                publicarMensajeEnTopic(f"[EC_Central->ALL][{mapa.exportJson()}][{mapa.exportActiveTaxis}]", TOPIC_TAXIS, BROKER_ADDR)
+                publicarMensajeEnTopic(f"[EC_Central->ALL][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]", TOPIC_TAXIS, BROKER_ADDR)
 
         else:
             #print(mensaje)

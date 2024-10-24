@@ -142,7 +142,7 @@ def gestionarConexionCentral():
                         print("INFO: Autentificación correcta")
                         posX = camposMensaje[2].split(",")[0]
                         posY = camposMensaje[2].split(",")[1]
-                        recibirMapa()
+                        recibirMapa(socket)
                         hiloMovimientosAleatorios = threading.Thread(target=movimientosAleatorios)
                         hiloMovimientosAleatorios.start()
                     elif mensaje == f"[EC_Central->EC_DE_{ID}][NOT_AUTHORIZED]":
