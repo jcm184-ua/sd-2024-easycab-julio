@@ -98,7 +98,7 @@ def gestionarBrokerClientes():
             #Nuestros propios mensajes
             pass
         elif camposMensaje[0].startswith("EC_Customer"):
-            # ['EC_Customer-a->EC_Central', 'E']
+            # ['EC_Customer_a->EC_Central', 'E']
             idCliente = camposMensaje[0].split("->")[0][12:]
             localizacion = camposMensaje[1]
             print(f"INFO: Solicitud de servicio recibida, cliente {idCliente}, destino {localizacion}.")
@@ -209,8 +209,7 @@ def gestionarTaxi(conexion, direccion):
                 modificarTaxisConectados(-1)
                 break
     else:
-        print("INFO: Taxi con conexion {0} y {1} no autorizado. Desconectando..."
-            .format(conexion, direccion))
+        print(f"INFO: Taxi con conexion {conexion} y {direccion} no autorizado. Desconectando...")
         conexion.close()
 
 def asignarServicio(taxi, cliente, localizacion):
