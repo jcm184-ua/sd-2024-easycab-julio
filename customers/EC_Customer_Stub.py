@@ -1,14 +1,13 @@
+# hay que preguntar como serán los ficheros que lee EC_Customer, pero de momento se
+# puedehacer el main, comprobarArgumentos, conexion al brocker y escritura en ella
+
 import sys
 import time
 from kafka import KafkaProducer
 from kafka import KafkaConsumer
 import re
 
-sys.path.append('../../shared')
-from EC_Map import Map
-from EC_Shared import *
-
-TOPIC_CLIENTES = 'CLIENTES'
+FORMAT = 'utf-8'
 
 BROKER_IP = None
 BROKER_PORT = None
@@ -21,6 +20,7 @@ def comprobarArgumentos(argumentos):
         exit()
     print("INFO: Número de argumentos correcto.")
 
+
 def asignarConstantes(argumentos):
     global BROKER_IP
     BROKER_IP = argumentos[1]
@@ -30,7 +30,7 @@ def asignarConstantes(argumentos):
     BROKER_ADDR = BROKER_IP+":"+str(BROKER_PORT)
     global ID
     ID = argumentos[3]
-    print("INFO: Constantes asignadas")
+
 
 def leerServicios():
     # TODO: Leer fichero
@@ -40,12 +40,28 @@ def leerServicios():
     servicios.append("D")
     return servicios
 
+def publicarMensaje(mensaje):
+    global BROKER_ADDR
+    print(f"INFO: Conectando al broker en la dirección ({BROKER_ADDR}) como productor.")
+    conexion = KafkaProducer(bootstrap_servers=BROKER_ADDR)
+    conexion.send('CLIENTES',(mensaje.encode(FORMAT)))
+    print(f"INFO: Mensaje {mensaje} publicado.")
+    # TODO: Fallo de publicación.
+    conexion.close()
+    print("INFO: Desconectado del broker como productor.")
+
+def conectarBrokerConsumidor():
+    global BROKER_ADDR
+    print(f"INFO: Conectando al broker en la dirección ({BROKER_ADDR}) como consumidor.")
+    # return KafkaConsumer('CLIENTES',bootstrap_servers=CONEXION,auto_offset_reset='earliest')
+    return KafkaConsumer('CLIENTES',bootstrap_servers=BROKER_ADDR)
+
 def esperarMensaje():
     conexion = conectarBrokerConsumidor()
     for mensaje in conexion:
-        print(f"DEBUG: Mensaje recibido: {mensaje.value.decode(FORMAT)}")
+        print(f"DEBUG: Mensaje recibido -> {mensaje.value.decode(FORMAT)}")
         camposMensaje = re.findall('[^\[\]]+', mensaje.value.decode(FORMAT))
-        if camposMensaje[0] == f"EC_Central->EC_Customer_{ID}":
+        if camposMensaje[0] == f"EC_Central->EC_Customer-{ID}":
             conexion.close()
             print("INFO: Desconectado del broker como consumidor.")
             return camposMensaje[1]
@@ -61,14 +77,14 @@ def evaluarMensaje(mensajeRecibido):
 
 def solicitarServicio(servicio):
     print(f"INFO: Procedo a solicitar el servicio {servicio}")
-    publicarMensajeEnTopic(f"[EC_Customer_{ID}->EC_Central][{servicio}]", TOPIC_CLIENTES, BROKER_ADDR) # (Solicitar servicio
+    publicarMensaje(f"[EC_Customer_{ID}->EC_Central][{servicio}]") # (Solicitar servicio
     
-    mensajeRecibido = esperarMensaje()
+    """mensajeRecibido = esperarMensaje()
 
     if evaluarMensaje(mensajeRecibido):
-        print("INFO: Me han aceptado y completado el servicio.")
+        print("INFO: Me han aceptado el servicio.")
     else:
-        print("INFO: Me han denegado o cancelado el servicio.")    
+        print("INFO: Me han denegado el servicio.")"""    
 
 def main():
     comprobarArgumentos(sys.argv)
@@ -81,10 +97,11 @@ def main():
     #conexionConsumidor = conectarBrokerConsumidor(BROKER_IP, BROKER_PORT)
 
     # TODO: ¿Comprobar la conexión, brocker puede caer?
-    for servicio in servicios:
-        solicitarServicio(servicio)
-        print("INFO: Esperando 4 segundos...")
-        time.sleep(4)
+    while True:
+        for servicio in servicios:
+            solicitarServicio(servicio)
+            print("INFO: Esperando 4 segundos...")
+            time.sleep(4)
     print("INFO: He realizado todos los servicios que deseaba. Finalizando ejecución...")
 
 if __name__ == "__main__":

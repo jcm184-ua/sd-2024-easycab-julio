@@ -7,8 +7,12 @@ import socket
 import threading
 from kafka import KafkaConsumer, KafkaProducer
 
-HEADER = 64
-FORMAT = 'utf-8'
+sys.path.append('../../shared')
+from EC_Shared import *
+from EC_Map import Map
+
+TOPIC_TAXIS = 'TAXIS'
+TOPIC_CLIENTES = 'CLIENTES'
 
 HOST = "" # Simbólico, nos permite escuchar en todas las interfaces de red
 LISTEN_PORT = None
@@ -16,14 +20,13 @@ THIS_ADDR = None
 BROKER_IP = None
 BROKER_PORT = None
 BROKER_ADDR = None
-TOPIC_CLIENTES = 'CLIENTES'
-TOPIC_TAXIS = 'TAXIS'
 
 diccionarioLocalizaciones = {}
 taxisConectados = 0
 taxisLibres = 0
 nuevoTaxisConectados = [1, 2, 3, 5]
 nuevoTaxisLibres = [2, 3]
+mapa = Map()
 
 def comprobarArgumentos(argumentos):
     if len(argumentos) != 4:
@@ -44,7 +47,7 @@ def asignarConstantes(argumentos):
     BROKER_PORT = int(argumentos[3])
     global BROKER_ADDR
     BROKER_ADDR = BROKER_IP+":"+str(BROKER_PORT)
-    print("INFO: Constantes asignadas")
+    print("INFO: Constantes asignadas.")
 
 def leerConfiguracionMapa():
     global diccionarioLocalizaciones
@@ -56,32 +59,32 @@ def leerConfiguracionMapa():
                 for item in value:
                     print(f"INFO: Cargada localización {item['Id']} con coordenadas ({item['POS']}).")
                     diccionarioLocalizaciones.update({item['Id'] : item['POS']})
-                    
+
             #print(diccionarioLocalizaciones)
             print("INFO: Mapa cargado con éxito.")
     except IOError as error:
         print("FATAL: No se ha podido abrir el fichero.")
         sys.exit()
 
-def abrirSocket():
-    global THIS_ADDR
-    #print("INFO: Abriendo socket de escucha en el puerto {0}.".format(LISTEN_PORT))
-    print(f"INFO: Abriendo socket de escucha en la dirección {THIS_ADDR}.")
-    socketAbierto = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    socketAbierto.bind(THIS_ADDR)
-    return socketAbierto
+def iniciarBBDD():
+    conexionBBDD = sqlite3.connect('database.db')
+    cursor = conexionBBDD.cursor()
 
-def publicarMensaje(mensaje, topic):
-    global BROKER_ADDR
-    print(f"INFO: Conectando al broker en la dirección ({BROKER_ADDR}) como productor.")
-    conexion = KafkaProducer(bootstrap_servers=BROKER_ADDR)
-    conexion.send(topic,(mensaje.encode(FORMAT)))
-    print(f"INFO: Mensaje {mensaje} publicado.")
-    # TODO: Fallo de publicación.
-    conexion.close()
-    print("INFO: Desconectado del broker como productor.")
+    fd = open('crearBBDD.sql', 'r')
+    sqlFile = fd.read()
+    fd.close()
 
-def gestionarClientes():
+    sqlCommands = sqlFile.split(';')
+    for command in sqlCommands:
+        try:
+            cursor.execute(command)
+        except OperationalError as msg:
+            print("Command skipped: ", msg)
+
+    print("INFO: Base de datos preparada.")
+
+
+def gestionarBrokerClientes():
     global BROKER_ADDR
     print(f"INFO: Conectando al broker en la dirección ({BROKER_ADDR}) como consumidor CLIENTES.")
     #TODO: try:
@@ -119,7 +122,7 @@ def gestionarClientes():
     #    print(error)
     #    sys.exit()
 
-def gestionarTaxis():
+def gestionarBrokerTaxis():
     global BROKER_ADDR
     print(f"INFO: Conectando al broker en la dirección ({BROKER_ADDR}) como consumidor TAXIS.")
     #TODO: try:
@@ -137,7 +140,7 @@ def gestionarTaxis():
             idTaxi = camposMensaje[0].split("->")[0][17:]
             posX = camposMensaje[1].split(",")[0][1:]
             posY = camposMensaje[1].split(",")[1][:1]
-            print(f"INFO: Posición ({posX},{posY}) recibida del taxi {idTaxi}.")
+            print(f"INFO: Movimiento ({posX},{posY}) recibida del taxi {idTaxi}.")
             # TODO: Actualizar el mapa de todos los taxis
         else:
             #print(mensaje)
@@ -159,8 +162,26 @@ def modificarTaxisLibres(cambio):
     print("INFO: Número de taxis libres actualizado: {0}".format(taxisLibres))
 
 def autenticarTaxi(conexion, direccion):
-    #El taxi mandará su id, consultaremos la bbdd, si aparece y no estuviera ya conectado
-    return True
+    while True:
+        try:
+            longitud_mensaje = conexion.recv(HEADER).decode(FORMAT)
+            if longitud_mensaje:
+                longitud_mensaje = int(longitud_mensaje)
+                mensaje = conexion.recv(longitud_mensaje).decode(FORMAT)
+                print(f"INFO: He recibido del cliente {direccion} el mensaje: {mensaje}")
+                idTaxi = mensaje[7:8]
+                if True: #COMPROBAR BASE DE DATOS Y VER SI YA HAY UNO CONECTADO
+                    print("INFO: El taxi existe y no está conectado")
+                    enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][AUTHORIZED]")
+                else:
+                    enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][NOT_AUTHORIZED]")
+            else:
+                print(f"ERROR: MENSAJE VACIO, CONEXION PERDIDA.")
+                break
+        except Exception as e:
+            print(f"ERROR: EXCEPCION, CONEXION PERDIDA: {e}")
+    return False
+
 
 def gestionarTaxi(conexion, direccion):
     if autenticarTaxi(conexion, direccion):
@@ -168,10 +189,10 @@ def gestionarTaxi(conexion, direccion):
         modificarTaxisConectados(+1)
         modificarTaxisLibres(1)
         #Añadir taxi disponible a la bbdd
-        conexionBBDD = sqlite3.connect('taxis.db')
-        cursor = conexionBBDD.cursor()
-        cursor.execute("UPDATE taxis SET estado = 'conectado' WHERE id = ?", (direccion,))
-        print("INFO: Taxi con conexion {0} y {1} autorizado.".format(conexion, direccion))
+        #conexionBBDD = sqlite3.connect('database.db')
+        #cursor = conexionBBDD.cursor()
+        #cursor.execute("UPDATE taxis SET estado = 'conectado' WHERE id = ?", (direccion,))
+        #print("INFO: Taxi con conexion {0} y {1} autorizado.".format(conexion, direccion))
 
 
         while True:
@@ -195,7 +216,7 @@ def gestionarTaxi(conexion, direccion):
 def asignarServicio(taxi, cliente, localizacion):
     time.sleep(0.5) # Evitar que se termine el servicio antes de que el cliente lo pueda leer
     # El cliente nos importa?
-    # Donde está el cliente?    
+    # Donde está el cliente?
     print(f"INFO: Servicio  {cliente}, {localizacion} finalizado por {taxi}")
     publicarMensaje(f"EC_Central->EC_Customer_{cliente}[OK]", TOPIC_CLIENTES)
 
@@ -206,10 +227,11 @@ def main():
     comprobarArgumentos(sys.argv)
     asignarConstantes(sys.argv)
     leerConfiguracionMapa()
+    iniciarBBDD()
 
     #TODO: Popular base de datos en arranque o ver si habíamos crasheado
 
-    socketEscucha = abrirSocket()
+    socketEscucha = abrirSocketServidor(THIS_ADDR)
     socketEscucha.listen()
 
     print("INFO: Entrando al bucle de ejecución...")
@@ -223,12 +245,12 @@ def main():
         #denegar servicio
         #print("CENTRAL: Denegado servicio a cliente n($id) por falta de taxis.")
 
-    hiloClientes = threading.Thread(target=gestionarClientes)
+    hiloClientes = threading.Thread(target=gestionarBrokerClientes)
     hiloClientes.start()
-    hiloTaxis = threading.Thread(target=gestionarTaxis)
+    hiloTaxis = threading.Thread(target=gestionarBrokerTaxis)
     hiloTaxis.start()
 
-    #hiloTaxis = threading.Thread(target=gestionarTaxis)
+    #hiloTaxis = threading.Thread(target=gestionarBrokerTaxis)
 
     # Hacer un hilo que gestione la cola de los clientes
     # Hacer otro hilo que gestione la cola de los taxis

@@ -3,8 +3,8 @@ import socket
 import threading
 import time
 
-HEADER = 64
-FORMAT = 'utf-8'
+sys.path.append('../../shared')
+from EC_Shared import *
 
 # Variable global para el estado del sensor (True = OK, False = KO)
 estado = True
@@ -20,23 +20,32 @@ def comprobarArgumentos(argumentos):
     print("INFO: Número de argumentos correcto.")
 
 def asignarConstantes(argumentos):
-    # Asignamos las constantes
     global TAXI_IP
     TAXI_IP = argumentos[1]
     global TAXI_PORT
     TAXI_PORT = int(argumentos[2])
     global TAXI_ADDR
     TAXI_ADDR =  (TAXI_IP, TAXI_PORT)
-    print("INFO: Constantes asignadas")
+    print("INFO: Constantes asignadas.")
 
-def manejar_socket():
-    """Conectar al EC_DE y enviar el estado del sensor cada segundo"""
+def gestionarConexionTaxi():
     global estado
+
+    while True:
+        try:
+            socket abrirSocketCliente(TAXI_ADDR)
+
+        except Exception as e:
+            print(f"WARNING: SOCKET CAIDO: {e}.")
+            time.sleep(3)
+            print(f"INFO: Reintentando conexión...")
+    
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((TAXI_IP, int(TAXI_PORT)))
             print(f"Conectado a EC_DE en {TAXI_IP}:{TAXI_PORT}")
             
+            # MEJORAR MENSAJE [EC_Sensor->EC_DE_?][OK]
             while True:
                 mensaje = "OK" if estado else "KO"
                 message = mensaje.encode(FORMAT)
@@ -73,13 +82,10 @@ def main():
     comprobarArgumentos(sys.argv)
     asignarConstantes(sys.argv)
 
-
-    # Crear el hilo para manejar la conexión por socket con EC_DE
-    hilo_socket = threading.Thread(target=manejar_socket)
-    hilo_socket.daemon = True  # El hilo terminará cuando termine el programa principal
+    hilo_socket = threading.Thread(target=gestionarConexionTaxi)
     hilo_socket.start()
 
-    # Menú para cambiar el estado
+    #TODO: Hacer bien y en ventana extra
     cambiar_estado()
 
 if __name__ == "__main__":

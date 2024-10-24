@@ -5,10 +5,11 @@ from kafka import KafkaProducer, KafkaConsumer
 import time
 
 sys.path.append('../../shared')
+from EC_Shared import *
 from EC_Map import Map
 
-HEADER = 64
-FORMAT = 'utf-8'
+TOPIC_TAXIS = 'TAXIS'
+MAX_CONECTED_SENSORS = 1
 
 CENTRAL_IP = None
 CENTRAL_PORT = None
@@ -20,8 +21,6 @@ HOST = "" # Simbólico, nos permite escuchar en todas las interfaces de red
 LISTEN_PORT = None
 THIS_ADDR = None
 ID = None
-MAX_CONECTED_SENSORS = 1
-TOPIC_TAXIS = 'TAXIS'
 
 sensoresConectados = 0
 estadoSensores = [] #Si tengo varios sensores comprobar todos los sensores.
@@ -61,22 +60,10 @@ def modificarSensoresConectados(valor):
     global sensoresConectados
     sensoresConectados += valor
 
-def abrirSocketEscucha():
-    print(f"INFO: Abriendo socket de escucha en la dirección {THIS_ADDR}.")
-    socketAbierto = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    socketAbierto.bind(THIS_ADDR)
-    return socketAbierto
-
-def abrirSocketCentral():
-    print(f"INFO: Abriendo socket a central en la dirección {THIS_ADDR}.")
-    socketCentral = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    socketCentral.connect(CENTRAL_ADDR)
-    return socketCentral
-
 def gestionarSocketSensores():
     #print(f"INFO: Iniciando socket de escucha para sensores en {THIS_ADDR}")
 
-    socketEscucha = abrirSocketEscucha()
+    socketEscucha = abrirSocketServidor(THIS_ADDR)
     socketEscucha.listen()
 
     # TODO: Mas sensores?
@@ -97,39 +84,42 @@ def gestionarSensor(conexion, direccion):
     global estadoSensor
 
     while True:
-        msg_length = conexion.recv(HEADER).decode(FORMAT)
-        if msg_length:
-            msg_length = int(msg_length)
-            msg = conexion.recv(msg_length).decode(FORMAT)
-            print(f"INFO: Mensaje del sensor {direccion} recibido: {msg}")
-            if msg == "OK":
-                estadoSensor = True
-            elif msg == "KO":
-                estadoSensor = False
-            else:
-                print("ERROR: Mensaje desconocido")
-        else:
-            # El socket se ha desconectado
+        mensaje = recibirMensajeServidor(conexion)
+        if mensaje == None:
             print(f"INFO: Conexión con el sensor {direccion} perdida.")
             modificarSensoresConectados(-1)
             break
-
-def enviarMensajeSobreSocket(socket, mensaje):
-    mensaje_codificado = mensaje.encode(FORMAT)
-    longitud_mensaje = len(mensaje_codificado)
-    longitud_envio = str(longitud_mensaje).encode(FORMAT)
-    longitud_envio += b' ' * (HEADER - len(longitud_envio))
-    socket.send(longitud_envio)
-    socket.send(mensaje_codificado)
-    print(f'INFO: Mensaje "{mensaje}" enviado a través de socket {socket.getsockname()}.')
+        else:
+            print(f"INFO: Mensaje del sensor {direccion} recibido: {mensaje}")
+            if mensaje == "OK":
+                estadoSensor = True
+            elif mensaje == "KO":
+                estadoSensor = False
+            else:
+                print(f"ERROR: MENSAJE DESCONOCIDO: {mensaje}")
 
 def gestionarSocketCentral():
-    socketCentral = abrirSocketCentral()
+    socketCentral = abrirSocketCliente(CENTRAL_ADDR)
     print("INFO: Intentando autenticar en central")
     
     while True:
-        enviarMensajeSobreSocket(socketCentral, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST]")
+        enviarMensajeCliente(socketCentral, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST]")
         time.sleep(5)
+
+
+    while True:
+        mensaje = recibirMensajeCliente(conexion)
+        if mensaje == None:
+            print(f"INFO: Conexión con el servidor {direccion} perdida.")
+            break
+        else:
+            print(f"INFO: Mensaje del sensor {direccion} recibido: {mensaje}")
+            if mensaje == "OK":
+                estadoSensor = True
+            elif mensaje == "KO":
+                estadoSensor = False
+            else:
+                print(f"ERROR: MENSAJE DESCONOCIDO: {mensaje}")
 
     while True:
         msg_length = conexion.recv(HEADER).decode(FORMAT)
@@ -200,28 +190,8 @@ def main():
     hiloMovimientosAleatorios = threading.Thread(target=movimientosAleatorios)
     hiloMovimientosAleatorios.start()
 
-
-
-
-    #hilo_sensor = threading.Thread(target=gestionarSensor)
-    #hilo_sensor.start()
-    # esperar hasta que conecte un sensor para proseguir. Limitar a un máximo de un sensor
-
-    # Abrir un hili socket cliente a main para autenticarse.
-
-
-    # Aqui central verificará que su id existe en la base de datos y que está desconectado
-    #                                               (garantizar que dos taxis no tienen mismo id)
-    # socket / autenticarse()
-    # una vez conectado el engine le dará la posición (por defecto x=1, y=1)
-
-    # Permanecer a la espera de lo que se publica en el topic MOVIMIENTOS_TAXIS
-    # Actualizar el mapa con topic MAPA
-
     # cuando reciba una solicitud de servicio moverse hacia alli con mover(origenx, origeny, destinoX, destinoY)
     # cuando tengas el mapa puedes diseñar la función moverse que vaya devolviendo los movimientos que te lleven a una posicion
-
-
 
 if __name__ == "__main__":
     main()
