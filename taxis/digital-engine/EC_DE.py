@@ -8,7 +8,6 @@ sys.path.append('../../shared')
 from EC_Shared import *
 from EC_Map import Map
 
-TOPIC_TAXIS = 'TAXIS'
 MAX_CONECTED_SENSORS = 1
 
 CENTRAL_IP = None

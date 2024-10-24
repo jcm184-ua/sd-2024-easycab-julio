@@ -4,6 +4,10 @@ from kafka import KafkaConsumer, KafkaProducer
 HEADER = 64
 FORMAT = 'utf-8'
 
+TOPIC_TAXIS = 'TAXIS'
+TOPIC_CLIENTES = 'CLIENTES'
+TOPIC_ERRORES = 'ERRORES'
+
 def abrirSocketServidor(socket_addr):
     print(f"INFO: Abriendo socket servidor en la dirección {socket_addr}.")
     socketAbierto = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

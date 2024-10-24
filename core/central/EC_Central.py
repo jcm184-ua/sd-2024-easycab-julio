@@ -11,9 +11,6 @@ sys.path.append('../../shared')
 from EC_Shared import *
 from EC_Map import Map
 
-TOPIC_TAXIS = 'TAXIS'
-TOPIC_CLIENTES = 'CLIENTES'
-
 HOST = "" # Simbólico, nos permite escuchar en todas las interfaces de red
 LISTEN_PORT = None
 THIS_ADDR = None
