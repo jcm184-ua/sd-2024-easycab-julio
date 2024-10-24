@@ -9,16 +9,18 @@ SIZE = 20
 TILE_SIZE = 30  # Tamaño de cada celda del mapa
 
 class COLORES_ANSII:
-    BLUE = '\033[94m'
+    #BLUE = '\033[94m'
     BACKGROUD_BLUE = '\033[104m'
-    YELLOW = '\033[93m'
+    #YELLOW = '\033[93m'
     BACKGROUD_YELLOW = '\033[103m'
-    GREEN = '\033[92m'
+    #GREEN = '\033[92m'
     BACKGROUD_GREEN = '\033[102m'
     ENDC = '\033[0m'
+    BACKGROUD_RED = '\033[101m'
 
 class Map:
     diccionarioPosiciones = {}
+    taxisActivos = []
 
     def print(self):
         """ Imprimir el mapa en consola """
@@ -30,7 +32,10 @@ class Map:
                 for key, value in self.diccionarioPosiciones.items():
                     if value == f"{i},{j}":
                         if key.startswith('taxi'):
-                            print(f"{COLORES_ANSII.BACKGROUD_GREEN} {key[5:]} {COLORES_ANSII.ENDC}", end="")
+                            if key in self.taxisActivos:
+                                print(f"{COLORES_ANSII.BACKGROUD_GREEN} {key[5:]} {COLORES_ANSII.ENDC}", end="")
+                            else:
+                                print(f"{COLORES_ANSII.BACKGROUD_RED} {key[5:]} {COLORES_ANSII.ENDC}", end="")
                         elif key.startswith('cliente'):
                             print(f"{COLORES_ANSII.BACKGROUD_YELLOW} {key[8:]} {COLORES_ANSII.ENDC}", end="")
                         elif key.startswith('localizacion'):
@@ -69,12 +74,36 @@ class Map:
 
     def clear(self):
         self.diccionarioPosiciones = {}
+        self.taxisActivos = []
 
     def exportJson(self):
         return json.dumps(self.diccionarioPosiciones)
 
+    def exportActiveTaxis(self):
+        return json.dumps(self.taxisActivos)
+
     def loadJson(self, jsonData):
         self.diccionarioPosiciones = json.loads(jsonData)
+
+    def loadActiveTaxis(self, jsonData):
+        self.taxisActivos = json.loads(jsonData)
+
+    def move(self, key, x, y):
+        initX = self.diccionarioPosiciones[key].split(",")[0]
+        initY = self.diccionarioPosiciones[key].split(",")[1]
+        destX = int(initX) + x
+        desrY = int(initY) + y
+        #TODO: Comprobar límites del mapa y "overflowear" si se sale
+        self.diccionarioPosiciones[key] = f"{int(int(initX) + x)},{int(int(initY) + y)}"
+        print(f"INFO: Movimiento realizado de {initX},{initY} a {destX},{desrY} para {key}")
+
+    def getPosition(self, key):
+        try:
+            self.diccionarioPosiciones[key]
+            return self.diccionarioPosiciones[key]
+        except:
+            print("ERROR: No se ha encontrado la posición.")
+            return None
 
 # Función en segundo plano para leer de Kafka
 def kafka_consumer_thread(topic, broker_addr, add_error_callback):
@@ -83,7 +112,6 @@ def kafka_consumer_thread(topic, broker_addr, add_error_callback):
         camposMensaje = re.findall('[^\[\]]+', mensaje.value.decode(FORMAT))
         recibidor = camposMensaje[0].split("->")[0]
         add_error_callback(f"{recibidor}: {camposMensaje[1]}")
-        
 
 # Crear una ventana con un canvas para mostrar el mapa gráficamente
 def create_window(map_instance):
@@ -149,9 +177,13 @@ def main():
     # Imprimir el mapa actualizado por consola
     map_instance.print()
 
+    #mapa.diccionarioPosiciones.update({"localizacion_C" : "10,2"})
+    #mapa.print()
+
     # Exportar el mapa a JSON
     pruebaJson = map_instance.exportJson()
-    print("Exportado JSON:", pruebaJson)
+    pruebaJson2 = map_instance.exportActiveTaxis()
+    print("Exportado JSON:", pruebaJson, pruebaJson2)
 
     # Borrar el mapa en la consola
     map_instance.clear()
@@ -159,11 +191,11 @@ def main():
 
     # Cargar el mapa desde JSON y mostrarlo por consola
     map_instance.loadJson(pruebaJson)
+    map_instance.loadActiveTaxis(pruebaJson2)
     map_instance.print()
 
     # Mostrar el mapa gráficamente con Tkinter y consumir/ producir mensajes de Kafka
     create_window(map_instance)
-
 
 if __name__ == "__main__":
     main()

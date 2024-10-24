@@ -4,6 +4,10 @@ from kafka import KafkaConsumer, KafkaProducer
 HEADER = 64
 FORMAT = 'utf-8'
 
+TOPIC_TAXIS = 'TAXIS'
+TOPIC_CLIENTES = 'CLIENTES'
+TOPIC_ERRORES = 'ERRORES'
+
 def abrirSocketServidor(socket_addr):
     print(f"INFO: Abriendo socket servidor en la dirección {socket_addr}.")
     socketAbierto = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -35,6 +39,13 @@ def recibirMensajeServidor(conexion):
         print(f"INFO: Mensaje '{mensaje}' recibido a través de la conexión {conexion.getpeername()}.")
         return mensaje
 
+def recibirMensajeServidorSilent(conexion):
+    longitud_mensaje = conexion.recv(HEADER).decode(FORMAT)
+    if longitud_mensaje:
+        longitud_mensaje = int(longitud_mensaje)
+        mensaje = conexion.recv(longitud_mensaje).decode(FORMAT)
+        return mensaje
+
 def enviarMensajeCliente(socket, mensaje):
     mensaje_codificado = mensaje.encode(FORMAT)
     longitud_mensaje = len(mensaje_codificado)
@@ -50,6 +61,13 @@ def recibirMensajeCliente(conexion):
         longitud_mensaje = int(longitud_mensaje)
         mensaje = conexion.recv(longitud_mensaje).decode(FORMAT)
         print(f"INFO: Mensaje '{mensaje}' recibido a través de la conexión {conexion.getsockname()}.")
+        return mensaje
+
+def recibirMensajeClienteSilent(conexion):
+    longitud_mensaje = conexion.recv(HEADER).decode(FORMAT)
+    if longitud_mensaje:
+        longitud_mensaje = int(longitud_mensaje)
+        mensaje = conexion.recv(longitud_mensaje).decode(FORMAT)
         return mensaje
 
 def conectarBrokerConsumidor(broker_addr, topic):
