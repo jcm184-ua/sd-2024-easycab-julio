@@ -1,8 +1,10 @@
 import sys
+import re
 import socket
 import threading
 from kafka import KafkaProducer, KafkaConsumer
 import time
+from datetime import datetime
 
 sys.path.append('../../shared')
 from EC_Shared import *
@@ -25,6 +27,12 @@ sensoresConectados = 0
 estadoSensores = [] #Si tengo varios sensores comprobar todos los sensores.
 estadoSensor = False
 mapa = Map()
+
+posX = None
+posY = None
+destX = None
+destY = None
+
 
 def comprobarArgumentos(argumentos):
     if len(argumentos) != 7:
@@ -64,7 +72,6 @@ def gestionarSocketSensores():
 
     socketEscucha = abrirSocketServidor(THIS_ADDR)
     socketEscucha.listen()
-
     # TODO: Mas sensores?
 
     while True:
@@ -83,21 +90,39 @@ def gestionarSensor(conexion, direccion):
     global estadoSensor
 
     while True:
-        mensaje = recibirMensajeServidor(conexion)
+        mensaje = recibirMensajeServidorSilent(conexion)
         if mensaje == None:
             print(f"INFO: Conexión con el sensor {direccion} perdida.")
             modificarSensoresConectados(-1)
             break
         else:
-            print(f"INFO: Mensaje del sensor {direccion} recibido: {mensaje}")
-            if mensaje == "OK":
-                estadoSensor = True
-            elif mensaje == "KO":
-                estadoSensor = False
+            if mensaje == "OK" and estadoSensor == True:
+                pass
+            elif mensaje == "KO" and estadoSensor == False:
+                pass
+            elif mensaje != "OK" and mensaje != "KO":
+                print(f"ERROR SENSOR: MENSAJE DESCONOCIDO: {mensaje}")
             else:
-                print(f"ERROR: MENSAJE DESCONOCIDO: {mensaje}")
+                print("INFO: Cambiando estado del sensor")
+                estadoSensor = not estadoSensor
+                if mensaje == "OK":
+                    publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][ESTADO][OK]", TOPIC_TAXIS, BROKER_ADDR)
+                elif mensaje == "KO":
+                    publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][ESTADO][KO]", TOPIC_TAXIS, BROKER_ADDR)
+
+def recibirMapa(socket):
+    # PASO DE LA RESILIENCIA DE SI SE INTERRUMPE AQUI YA QUE ES EL LOGIN
+    mensaje = recibirMensajeCliente(socket)
+    camposMensaje = re.findall('[^\[\]]+', mensaje)
+    print("INFO: Mapa recibido")
+    mapa.loadJson(camposMensaje[1])
+    mapa.loadActiveTaxis(camposMensaje[2])
+    mapa.print()
+
 
 def gestionarConexionCentral():
+    global posX, posY, destX, destY
+
     while True:
         try:
             socket = abrirSocketCliente(CENTRAL_ADDR)
@@ -106,37 +131,46 @@ def gestionarConexionCentral():
             time.sleep(5)
             while True:
                 mensaje = recibirMensajeCliente(socket)
+                camposMensaje = re.findall('[^\[\]]+', mensaje)
+                #print(camposMensaje)
                 if mensaje == None:
-                    print(f"INFO: Mensaje vacio. ¿Conexión con el servidor {socket} perdida.?")
+                    print(f"INFO: Mensaje vacio. ¿Conexión con el servidor perdida.?")
                     break
                 else:
-                    print(f"INFO: Mensaje del servidor {socket} recibido: {mensaje}")
-                    if mensaje == f"[EC_Central->EC_DE_{ID}][AUTHORIZED]":
-                        print("INFO: Autenticación correcta")
+                    print(f"INFO: Mensaje del servidor recibido: {mensaje}")
+                    if mensaje.startswith(f"[EC_Central->EC_DE_{ID}][AUTHORIZED]"):
+                        print("INFO: Autentificación correcta")
+                        posX = camposMensaje[2].split(",")[0]
+                        posY = camposMensaje[2].split(",")[1]
+                        recibirMapa()
                         hiloMovimientosAleatorios = threading.Thread(target=movimientosAleatorios)
                         hiloMovimientosAleatorios.start()
                     elif mensaje == f"[EC_Central->EC_DE_{ID}][NOT_AUTHORIZED]":
-                        print("ERROR: Autenticación incorrecta")
+                        print("ERROR ENGINE: Autentificación incorrecta")
                         exit()
                     else:
-                        print(f"ERROR: MENSAJE DESCONOCIDO: {mensaje}")
+                        print(f"ERROR ENGINE: MENSAJE DESCONOCIDO: {mensaje}")
         except Exception as e:
             print(f"WARNING: SOCKET CAIDO: {e}.")
             time.sleep(3)
             print(f"INFO: Reintentando conexión...")
 
+        #Una vez autorizados y con posición, esperar a que se nos indique un servicio
+
 def gestionarBroker():
+    global mapa
+
     print(f"INFO: Conectando al broker en la dirección ({BROKER_ADDR}) como consumidor.")
-    conexion = KafkaConsumer(TOPIC_TAXIS, bootstrap_servers=BROKER_ADDR)
-    for mensaje in conexion:
-        if mensaje.value.decode(FORMAT).startswith(f"[EC_Central->All]"):
-            continue
-            print(f"INFO: Mensaje recibido: {mensaje}")
-            global mapa
-            mapa.loadJson(mensaje)
+    consumidor = conectarBrokerConsumidor(BROKER_ADDR, TOPIC_TAXIS)
+    for mensaje in consumidor:
+        camposMensaje = re.findall('[^\[\]]+', mensaje.value.decode(FORMAT))
+        if camposMensaje[0] == ("EC_Central->ALL"):
+            mapa.loadJson(camposMensaje[1])
+            mapa.loadActiveTaxis(camposMensaje[2])
             mapa.print()
         else:
             # TODO: Informar mas que decir que error
+            pass
             print(f"INFO: Mensaje desconocido descartado: {mensaje}")
 
 def mover(x, y):
@@ -144,14 +178,15 @@ def mover(x, y):
         print("ERROR: Movimiento demasiado grande")
     else:
         print(f"INFO: Moviendo en dirección ({x},{y})")
-        publicarMensajeEnTopic(f"[EC_DigitalEngine_{ID}->EC_Central][({x},{y})]", TOPIC_TAXIS, BROKER_ADDR)
+        publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][MOVIMIENTO][{x},{y}]", TOPIC_TAXIS, BROKER_ADDR)
 
 def movimientosAleatorios():
     while True:
         if estadoSensor:
-            print("INFO: Movimiento aleatorio")
+            print(datetime.now(), "INFO: Movimiento aleatorio", threading.get_ident())
             mover(1, 1)
-        time.sleep(2)
+        time.sleep(3)
+
 
 def main():
     comprobarArgumentos(sys.argv)
