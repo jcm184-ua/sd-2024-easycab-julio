@@ -227,8 +227,8 @@ def gestionarTaxi(conexion, direccion):
 
         #Taxi ha caido
         print(f"INFO: Taxi con id {idTaxi}, conexión {conexion} y {direccion} ha caido.")
-        nuevoTaxisConectados.remove(idTaxi)
-        nuevoTaxisLibres.remove(idTaxi)
+        taxisConectados.remove(idTaxi)
+        taxisLibres.remove(idTaxi)
     else:
         print(f"INFO: Taxi con conexion {conexion} y {direccion} no autorizado. Desconectando...")
         conexion.close()
