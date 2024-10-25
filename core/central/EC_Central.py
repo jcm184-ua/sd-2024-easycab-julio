@@ -23,7 +23,7 @@ taxisConectados = [] # [1, 2, 3, 5]
 taxisLibres = [] # [2, 3]
 mapa = Map()
 
-def comprobarArgumentos(argumentos):
+def     comprobarArgumentos(argumentos):
     if len(argumentos) != 4:
         print("CHECKS: ERROR LOS ARGUMENTOS. Necesito estos argumentos: <LISTEN_PORT> <BROKER_IP> <BROKER_PORT>")
         exit()
@@ -111,9 +111,9 @@ def gestionarBrokerClientes():
                 print(f"ERROR: La localización {localizacion} no existe. Cancelando servicio a cliente {idCliente}")
                 publicarMensaje("EC_Central->EC_Customer_{idCliente}[KO]", TOPIC_CLIENTES)
             else:
-                global nuevoTaxisLibres
-                if len(nuevoTaxisLibres) > 0:
-                    taxiElegido = nuevoTaxisLibres.pop()
+                global taxisLibres
+                if len(taxisLibres) > 0:
+                    taxiElegido = taxisLibres.pop()
                     print(f"INFO: Asignando servicio del cliente {idCliente} al taxi {taxiElegido}.")
                     asignarServicio(taxiElegido, idCliente, localizacion)
         else:
@@ -240,8 +240,8 @@ def asignarServicio(taxi, cliente, localizacion):
     print(f"INFO: Servicio  {cliente}, {localizacion} finalizado por {taxi}")
     publicarMensaje(f"EC_Central->EC_Customer_{cliente}[OK]", TOPIC_CLIENTES)
 
-    global nuevoTaxisLibres
-    nuevoTaxisLibres.append(taxi)
+    global taxisLibres
+    taxisLibres.append(taxi)
 
 def main():
     comprobarArgumentos(sys.argv)

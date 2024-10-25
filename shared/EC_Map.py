@@ -89,13 +89,11 @@ class Map:
         self.taxisActivos = json.loads(jsonData)
 
     def move(self, key, x, y):
-        initX = self.diccionarioPosiciones[key].split(",")[0]
-        initY = self.diccionarioPosiciones[key].split(",")[1]
-        destX = int(initX) + x
-        desrY = int(initY) + y
+        initX = x
+        initY = y
         #TODO: Comprobar límites del mapa y "overflowear" si se sale
-        self.diccionarioPosiciones[key] = f"{int(int(initX) + x)},{int(int(initY) + y)}"
-        print(f"INFO: Movimiento realizado de {initX},{initY} a {destX},{desrY} para {key}")
+        self.diccionarioPosiciones[key] = f"{int(initX)},{int(initY)}"
+        print(f"INFO: Movimiento realizado a {initX},{initY} para {key}")
 
     def getPosition(self, key):
         try:

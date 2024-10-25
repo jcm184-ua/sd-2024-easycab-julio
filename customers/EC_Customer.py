@@ -4,7 +4,7 @@ from kafka import KafkaProducer
 from kafka import KafkaConsumer
 import re
 
-sys.path.append('../../shared')
+sys.path.append('../shared')
 from EC_Map import Map
 from EC_Shared import *
 
@@ -41,7 +41,7 @@ def leerServicios():
     return servicios
 
 def esperarMensaje():
-    conexion = conectarBrokerConsumidor()
+    conexion = conectarBrokerConsumidor(BROKER_ADDR, TOPIC_CLIENTES)
     for mensaje in conexion:
         print(f"DEBUG: Mensaje recibido: {mensaje.value.decode(FORMAT)}")
         camposMensaje = re.findall('[^\[\]]+', mensaje.value.decode(FORMAT))
