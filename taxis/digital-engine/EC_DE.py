@@ -151,13 +151,14 @@ def gestionarConexionCentral():
                             printInfo("Autentificación correcta")
                             posX = camposMensaje[2].split(",")[0]
                             posY = camposMensaje[2].split(",")[1]
-                            recibirMapa(socket)
+                            recibirMapaLogin(socket)
+
+                        except:
+                            printError("ENGINE: Error al decodificar mensaje 1")
 
                             hiloMovimientos= threading.Thread(target=manejarMovimientos)
                             hiloMovimientos.start()
 
-                        except:
-                            printError("ENGINE: Error al decodificar mensaje 1")
                     elif mensaje == f"[EC_Central->EC_DE_{ID}][NOT_AUTHORIZED]":
                         printError("ENGINE: Autentificación incorrecta. Finalizando ejecución.")
                         os._exit(1)
@@ -187,7 +188,7 @@ def gestionarBroker():
                 mapa.print()
             elif camposMensaje[0] == f"EC_Central->EC_DE_{ID}":
                 if camposMensaje[1] == "SERVICIO":
-                    
+
                     clienteARecoger = camposMensaje[2].split("->")[0]
                     idLocalizacion = camposMensaje[2].split("->")[1]
                     cltX, cltY = obtenerPosicion(clienteARecoger, True)
@@ -196,12 +197,12 @@ def gestionarBroker():
                 # TODO: Informar mas que decir que error
                 pass
                 printInfo(f"Mensaje desconocido descartado: {mensaje}")
-        
+
 
 # ID del servicio a obtener id
 # cliente = True buscamos pos cliente
 # cliente = False buscamos pos localizacion
-        
+
 def obtenerPosicion(id, cliente):
     x, y = None, None
     global mapa
@@ -217,7 +218,7 @@ def obtenerPosicion(id, cliente):
             if key == f"localizacion_{id}":
                 x, y = value.split(",")
                 break
-    
+
     return x, y
 
 
@@ -268,7 +269,7 @@ def manejarMovimientos():
                 publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_RECOGIDO][{clienteARecoger}]", TOPIC_TAXIS, BROKER_ADDR)
 
             # Mover hacia el destino del cliente
-            elif clienteRecogido and destX is not None and destY is not None:  
+            elif clienteRecogido and destX is not None and destY is not None:
                 while (int(posX) != int(destX) or int(posY) != int(destY)):
                     print(f"DEBUG: Posición actual: {posX}, {posY} Y DESTINO EN {destX}, {destY}")
                     x, y = calcularMovimientos(posX, posY, destX, destY)
