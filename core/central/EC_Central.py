@@ -160,6 +160,8 @@ def gestionarBrokerTaxis():
                 posX = int(camposMensaje[2].split(",")[0])
                 posY = int(camposMensaje[2].split(",")[1])
                 printInfo(f"Movimiento ({posX},{posY}) recibido del taxi {idTaxi}.")
+                if camposMensaje[3] != "None":
+                    mapa.move(f"cliente_{camposMensaje[3]}", posX, posY)
                 mapa.move(f"taxi_{idTaxi}", posX, posY)
                 mapa.print()
                 publicarMensajeEnTopic(f"[EC_Central->ALL][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]", TOPIC_TAXIS, BROKER_ADDR)
