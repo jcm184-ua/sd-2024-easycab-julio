@@ -111,13 +111,13 @@ def gestionarBrokerClientes():
             global diccionarioLocalizaciones
             if localizacion not in diccionarioLocalizaciones:
                 printInfo(f"ERROR: La localización {localizacion} no existe. Cancelando servicio a cliente {idCliente}")
-                publicarMensajeEnTopic("[EC_Central->EC_Customer_{idCliente}[KO]", TOPIC_CLIENTES, BROKER_ADDR)
+                publicarMensajeEnTopic("[EC_Central->EC_Customer_{idCliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR)
             else:
                 printInfo(f"Estado de los taxis (L, C): {taxisLibres}, {taxisConectados}")
                 if len(taxisLibres) > 0:
                     taxiElegido = taxisLibres.pop()
                     printInfo(f"Asignando servicio del cliente {idCliente} al taxi {taxiElegido}.")
-                    publicarMensajeEnTopic(f"[EC_Central->EC_DE_{taxiElegido}[SERVICIO][{idCliente}->{localizacion}]", TOPIC_TAXIS, BROKER_ADDR)
+                    publicarMensajeEnTopic(f"[EC_Central->EC_DE_{taxiElegido}][SERVICIO][{idCliente}->{localizacion}]", TOPIC_TAXIS, BROKER_ADDR)
                 else:
                     printInfo(f"ERROR: No hay taxis disponibles para el cliente {idCliente}.")
                     publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{idCliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR)
