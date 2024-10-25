@@ -109,15 +109,25 @@ def ejecutarScriptBBDD(script):
 
     printInfo("Base de datos preparada.")
 
-def comprobarTaxiEnBBDD(idTaxi):
-    conexionBBDD = sqlite3.connect(DATABASE)
-    cursor = conexionBBDD.cursor()
+def comprobarTaxi(idTaxi):
+    try:
+        conexionBBDD = sqlite3.connect(DATABASE)
+        cursor = conexionBBDD.cursor()
 
-    cursor.execute("SELECT id FROM taxis WHERE id = ?", (idTaxi))
-    if cursor.fetchone() == None:
+        cursor.execute("SELECT id FROM taxis WHERE id = ?", (idTaxi,))
+        if cursor.fetchone() == None:
+            printInfo(f"Taxi {idTaxi} no encontrado en la base de datos.")
+            return False
+        else:
+            if idTaxi in taxisConectados:
+                printInfo(f"Taxi {idTaxi} existe y ya está conectado.")
+                return False
+            else:
+                printInfo(f"Taxi {idTaxi} existe y no está conectado.")
+            return True
+    except sqlite3.OperationalError as msg:
+        printError(msg)
         return False
-    else:
-        return True
 
 def gestionarBrokerClientes():
     global BROKER_ADDR
@@ -142,7 +152,7 @@ def gestionarBrokerClientes():
             printInfo(f"Solicitud de servicio recibida, cliente {idCliente}, destino {localizacion}.")
             global diccionarioLocalizaciones
             if localizacion not in diccionarioLocalizaciones:
-                printInfo(f"ERROR: La localización {localizacion} no existe. Cancelando servicio a cliente {idCliente}")
+                printError("La localización {localizacion} no existe. Cancelando servicio a cliente {idCliente}")
                 publicarMensajeEnTopic("[EC_Central->EC_Customer_{idCliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR)
             else:
                 printInfo(f"Estado de los taxis (L, C): {taxisLibres}, {taxisConectados}")
@@ -151,13 +161,13 @@ def gestionarBrokerClientes():
                     printInfo(f"Asignando servicio del cliente {idCliente} al taxi {taxiElegido}.")
                     publicarMensajeEnTopic(f"[EC_Central->EC_DE_{taxiElegido}][SERVICIO][{idCliente}->{localizacion}]", TOPIC_TAXIS, BROKER_ADDR)
                 else:
-                    printInfo(f"ERROR: No hay taxis disponibles para el cliente {idCliente}.")
+                    printError("No hay taxis disponibles para el cliente {idCliente}.")
                     publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{idCliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR)
 
         else:
             #printInfo(mensaje)
             #printInfo(mensaje.value.decode(FORMAT))
-            printInfo(f"ERROR: Mensaje desconocido recibido en {TOPIC_CLIENTES} : {mensaje.value.decode(FORMAT)}.")
+            printError("Mensaje desconocido recibido en {TOPIC_CLIENTES} : {mensaje.value.decode(FORMAT)}.")
     #except kafka.errors.NoBrokersAvailable as error:
     #    printInfo("FATAL: No se ha podido conectar con el broker")
     #    printInfo(error)
@@ -200,11 +210,11 @@ def gestionarBrokerTaxis():
                     pass
                 if camposMensaje[2] == "CLIENTE_EN_DESTINO":
                     publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{camposMensaje[3]}][OK]", TOPIC_CLIENTES)
-                    nuevoTaxisLibres.append(idTaxi)
+                    taxisLibres.append(idTaxi)
         else:
             #printInfo(mensaje)
             #printInfo(mensaje.value.decode(FORMAT))
-            printInfo(f"ERROR: Mensaje desconocido recibido en {TOPIC_TAXIS} : {mensaje.value.decode(FORMAT)}.")
+            printError("Mensaje desconocido recibido en {TOPIC_TAXIS} : {mensaje.value.decode(FORMAT)}.")
     #except kafka.errors.NoBrokersAvailable as error:
     #    printInfo("FATAL: No se ha podido conectar con el broker")
     #    printInfo(error)
@@ -217,27 +227,26 @@ def autenticarTaxi(conexion, direccion):
         if longitud_mensaje:
             longitud_mensaje = int(longitud_mensaje)
             mensaje = conexion.recv(longitud_mensaje).decode(FORMAT)
+            partesMensaje = re.findall('[^\[\]]+', mensaje)
             printInfo(f"He recibido del cliente {direccion} el mensaje: {mensaje}")
-            idTaxi = mensaje[7:8]
-            if not comprobarTaxiEnBBDD(idTaxi): #COMPROBAR BASE DE DATOS Y VER SI YA HAY UNO CONECTADO
-                printInfo("El taxi existe y no está conectado")
+            idTaxi = partesMensaje[0].split("->")[0][6:]
+            if comprobarTaxi(idTaxi): #COMPROBAR BASE DE DATOS Y VER SI YA HAY UNO CONECTADO
                 try:
-                    posicion = mapa.getPosition(f"taxi_{idTaxi}")
 
+                    posicion = mapa.getPosition(f"taxi_{idTaxi}")
                     enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][AUTHORIZED][{posicion.split(',')[0]},{posicion.split(',')[1]}]")
                     # SE PUEDE HACER POR KAFKA TAMBIEN
                     enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]")
                 except:
-                    printInfo("ERROR: Taxi no encontrado en el mapa")
+                    printError("Taxi no encontrado en el mapa")
             else:
-                printInfo("El taxi no existe o está conectado")
                 enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][NOT_AUTHORIZED]")
                 return -1
         else:
-            printInfo(f"ERROR: MENSAJE VACIO, CONEXION PERDIDA.")
+            printError(f"MENSAJE VACIO, CONEXION PERDIDA.")
             return -1
     except Exception as e:
-        printInfo(f"ERROR: EXCEPCION, CONEXION PERDIDA: {e}")
+        printError(f"EXCEPCION, CONEXION PERDIDA: {e}")
 
     return idTaxi
 
@@ -265,9 +274,9 @@ def gestionarTaxi(conexion, direccion):
                     break
                 else:
                     printInfo(f"Mensaje del taxi {direccion} recibido: {mensaje}")
-                    printInfo(f"ERROR: MENSAJE DESCONOCIDO: {mensaje}")
+                    printError("MENSAJE DESCONOCIDO: {mensaje}")
             except Exception as e:
-                printInfo(f"ERROR: EXCEPCION, CONEXION PERDIDA: {e}")
+                printError("EXCEPCION, CONEXION PERDIDA: {e}")
 
         #Taxi ha caido
         printInfo(f"Taxi con id {idTaxi}, conexión {conexion} y {direccion} ha caido.")
@@ -282,10 +291,10 @@ def asignarServicio(taxi, cliente, localizacion):
     time.sleep(0.5) # Evitar que se termine el servicio antes de que el cliente lo pueda leer
     printInfo(f"Servicio  {cliente}, {localizacion} finalizado por {taxi}")
 
-    publicarMensaje(f"EC_Central->EC_Customer_{cliente}[OK]", TOPIC_CLIENTES)
+    publicarMensajeEnTopic(f"EC_Central->EC_Customer_{cliente}[OK]", TOPIC_CLIENTES, BROKER_ADDR)
 
-    global nuevoTaxisLibres
-    nuevoTaxisLibres.append(taxi)
+    global taxisLibres
+    taxisLibres.append(taxi)
 
 def gestionarLoginTaxis():
     socketEscucha = abrirSocketServidor(THIS_ADDR)
