@@ -52,8 +52,8 @@ def leerConfiguracionMapa():
             for key in jsonLocalizaciones:
                 value = jsonLocalizaciones[key]
                 for item in value:
-                    printInfo(f"Cargada localización {item['Id']} con coordenadas ({item['POS']}).")
                     diccionarioLocalizaciones.update({item['Id'] : item['POS']})
+                    printInfo(f"Cargada localización {item['Id']} con coordenadas ({item['POS']}).")
 
             #printInfo(diccionarioLocalizaciones)
             printInfo("Mapa cargado con éxito.")
