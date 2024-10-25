@@ -19,7 +19,7 @@ def iniciarBBDD():
     for command in sqlCommands:
         try:
             cursor.execute(command)
-        except sqlite3 as msg:
+        except sqlite3.OperationalError as msg:
             printInfo("Command skipped: ")
             printInfo(msg)
 
