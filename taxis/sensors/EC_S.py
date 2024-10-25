@@ -15,9 +15,9 @@ TAXI_ADDR = None
 
 def comprobarArgumentos(argumentos):
     if len(argumentos) != 3:
-        print("CHECKS: ERROR LOS ARGUMENTOS. Necesito estos argumentos: <TAXI_IP> <TAXI_PORT>")
+        printInfo("ERROR LOS ARGUMENTOS. Necesito estos argumentos: <TAXI_IP> <TAXI_PORT>")
         exit()
-    print("INFO: Número de argumentos correcto.")
+    printInfo(f"Número de argumentos correcto.")
 
 def asignarConstantes(argumentos):
     global TAXI_IP
@@ -26,7 +26,7 @@ def asignarConstantes(argumentos):
     TAXI_PORT = int(argumentos[2])
     global TAXI_ADDR
     TAXI_ADDR =  (TAXI_IP, TAXI_PORT)
-    print("INFO: Constantes asignadas.")
+    printInfo(f"Constantes asignadas.")
 
 def gestionarConexionTaxi():
     global estado

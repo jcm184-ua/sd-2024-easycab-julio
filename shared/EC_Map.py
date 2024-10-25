@@ -80,13 +80,15 @@ class Map:
         return json.dumps(self.diccionarioPosiciones)
 
     def exportActiveTaxis(self):
-        return json.dumps(self.taxisActivos)
+        # ["taxi_1", "taxi_3"] -> ("taxi_1", "taxi_3")
+        # Para evitar que se parseen los corchetes en los regex y se rompa el JSON
+        return (json.dumps(self.taxisActivos).replace("[", "(").replace("]", ")"))
 
     def loadJson(self, jsonData):
         self.diccionarioPosiciones = json.loads(jsonData)
 
     def loadActiveTaxis(self, jsonData):
-        self.taxisActivos = json.loads(jsonData)
+        self.taxisActivos = json.loads(jsonData.replace("(", "[").replace(")", "]"))
 
     def move(self, key, x, y):
         initX = self.diccionarioPosiciones[key].split(",")[0]
@@ -104,6 +106,12 @@ class Map:
         except:
             print("ERROR: No se ha encontrado la posición.")
             return None
+
+    def activateTaxi(self, idTaxi):
+        self.taxisActivos.append(f"taxi_{idTaxi}")
+
+    def deactivateTaxi(self, idTaxi):
+        self.taxisActivos.remove(f"taxi_{idTaxi}")
 
 # Función en segundo plano para leer de Kafka
 def kafka_consumer_thread(topic, broker_addr, add_error_callback):
@@ -169,10 +177,15 @@ def main():
     # Actualizar el mapa con taxis, clientes y localizaciones
     map_instance.diccionarioPosiciones.update({"taxi_1": "2,3"})
     map_instance.diccionarioPosiciones.update({"taxi_2": "8,2"})
+    map_instance.diccionarioPosiciones.update({"taxi_3": "10,4"})
     map_instance.diccionarioPosiciones.update({"cliente_d": "3,5"})
     map_instance.diccionarioPosiciones.update({"cliente_e": "7,8"})
     map_instance.diccionarioPosiciones.update({"localizacion_A": "9,15"})
     map_instance.diccionarioPosiciones.update({"localizacion_C": "14,7"})
+
+    map_instance.taxisActivos.append("taxi_1")
+    map_instance.taxisActivos.append("taxi_3")
+
 
     # Imprimir el mapa actualizado por consola
     map_instance.print()

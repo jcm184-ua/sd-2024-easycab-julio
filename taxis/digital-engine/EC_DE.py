@@ -4,7 +4,6 @@ import socket
 import threading
 from kafka import KafkaProducer, KafkaConsumer
 import time
-from datetime import datetime
 
 sys.path.append('../../shared')
 from EC_Shared import *
@@ -93,6 +92,8 @@ def gestionarSensor(conexion, direccion):
         mensaje = recibirMensajeServidorSilent(conexion)
         if mensaje == None:
             print(f"INFO: Conexión con el sensor {direccion} perdida.")
+            estadoSensor = False
+            publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][ESTADO][KO]", TOPIC_TAXIS, BROKER_ADDR)
             modificarSensoresConectados(-1)
             break
         else:
@@ -111,14 +112,17 @@ def gestionarSensor(conexion, direccion):
                     publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][ESTADO][KO]", TOPIC_TAXIS, BROKER_ADDR)
 
 def recibirMapa(socket):
-    # PASO DE LA RESILIENCIA DE SI SE INTERRUMPE AQUI YA QUE ES EL LOGIN
-    mensaje = recibirMensajeCliente(socket)
-    camposMensaje = re.findall('[^\[\]]+', mensaje)
-    print("INFO: Mapa recibido")
-    mapa.loadJson(camposMensaje[1])
-    mapa.loadActiveTaxis(camposMensaje[2])
-    mapa.print()
-
+    try:
+        # PASO DE LA RESILIENCIA DE SI SE INTERRUMPE AQUI YA QUE ES EL LOGIN
+        mensaje = recibirMensajeCliente(socket)
+        camposMensaje = re.findall('[^\[\]]+', mensaje)
+        print("INFO: Mapa recibido")
+        print(camposMensaje)
+        mapa.loadJson(camposMensaje[1])
+        mapa.loadActiveTaxis(camposMensaje[2])
+        mapa.print()
+    except Exception as e:
+        print(f"ERROR MAPA: Error al recibir el mapa: {e}")
 
 def gestionarConexionCentral():
     global posX, posY, destX, destY
@@ -127,7 +131,7 @@ def gestionarConexionCentral():
         try:
             socket = abrirSocketCliente(CENTRAL_ADDR)
             print("INFO: Intentando autenticar en central")
-            enviarMensajeCliente(socket, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST]")
+            enviarMensajeCliente(socket, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST]['estado_sensor']['posicion?']")
             time.sleep(5)
             while True:
                 mensaje = recibirMensajeCliente(socket)
@@ -139,12 +143,15 @@ def gestionarConexionCentral():
                 else:
                     print(f"INFO: Mensaje del servidor recibido: {mensaje}")
                     if mensaje.startswith(f"[EC_Central->EC_DE_{ID}][AUTHORIZED]"):
-                        print("INFO: Autentificación correcta")
-                        posX = camposMensaje[2].split(",")[0]
-                        posY = camposMensaje[2].split(",")[1]
-                        recibirMapa(socket)
-                        hiloMovimientosAleatorios = threading.Thread(target=movimientosAleatorios)
-                        hiloMovimientosAleatorios.start()
+                        try:
+                            print("INFO: Autentificación correcta")
+                            posX = camposMensaje[2].split(",")[0]
+                            posY = camposMensaje[2].split(",")[1]
+                            recibirMapa(socket)
+                            hiloMovimientosAleatorios = threading.Thread(target=movimientosAleatorios)
+                            #hiloMovimientosAleatorios.start()
+                        except:
+                            print("ERROR ENGINE: Error al decodificar mensaje 1")
                     elif mensaje == f"[EC_Central->EC_DE_{ID}][NOT_AUTHORIZED]":
                         print("ERROR ENGINE: Autentificación incorrecta")
                         exit()
@@ -164,6 +171,7 @@ def gestionarBroker():
     consumidor = conectarBrokerConsumidor(BROKER_ADDR, TOPIC_TAXIS)
     for mensaje in consumidor:
         camposMensaje = re.findall('[^\[\]]+', mensaje.value.decode(FORMAT))
+        #print(camposMensaje)
         if camposMensaje[0] == ("EC_Central->ALL"):
             mapa.loadJson(camposMensaje[1])
             mapa.loadActiveTaxis(camposMensaje[2])
