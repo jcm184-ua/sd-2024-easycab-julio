@@ -10,8 +10,12 @@ SIZE = 20
 TILE_SIZE = 30  # Tamaño de cada celda del mapa
 
 class COLORES_ANSII:
+    BLACK = '\033[30m'
+    #BLUE = '\033[94m'
     BACKGROUD_BLUE = '\033[104m'
+    #YELLOW = '\033[93m'
     BACKGROUD_YELLOW = '\033[103m'
+    #GREEN = '\033[92m'
     BACKGROUD_GREEN = '\033[102m'
     ENDC = '\033[0m'
     BACKGROUD_RED = '\033[101m'
@@ -31,19 +35,25 @@ class Map:
                     if value == f"{i},{j}":
                         if key.startswith('taxi'):
                             if key in self.taxisActivos:
-                                print(f"{COLORES_ANSII.BACKGROUD_GREEN} {key[5:]} {COLORES_ANSII.ENDC}", end="")
+                                print(f"{COLORES_ANSII.BACKGROUD_GREEN}{COLORES_ANSII.BLACK}{key[5:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}", end="")
                             else:
-                                print(f"{COLORES_ANSII.BACKGROUD_RED} {key[5:]} {COLORES_ANSII.ENDC}", end="")
-                        elif key.startswith('localizacion'):
-                            print(f"{COLORES_ANSII.BACKGROUD_BLUE} {key[13:]} {COLORES_ANSII.ENDC}", end="")
-                        elif key.startswith('cliente'):
-                            print(f"{COLORES_ANSII.BACKGROUD_YELLOW} {key[8:]} {COLORES_ANSII.ENDC}", end="")
+                                print(f"{COLORES_ANSII.BACKGROUD_RED}{COLORES_ANSII.BLACK}{key[5:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}", end="")
+                        else:
+                            print(f" ", end="") 
+                        if key.startswith('localizacion'):
+                            print(f"{COLORES_ANSII.BACKGROUD_BLUE}{COLORES_ANSII.BLACK}{key[13:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}", end="")
+                        else:
+                            print(f" ", end="")
+                        if key.startswith('cliente'):
+                            print(f"{COLORES_ANSII.BACKGROUD_YELLOW}{COLORES_ANSII.BLACK}{key[8:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}", end="")
+                        else:
+                            print(f" ", end="")
                         break
                 else:
                     print("   ", end="")
                 print("|", end="")
             print()
-        print("-" * int(((0.5+SIZE) * 4 - 1)))
+        print("-" * int(((0.5+SIZE) * 4 - 1)))   
 
     def draw_on_canvas(self, canvas):
         """ Dibujar el mapa en un Canvas de Tkinter """
