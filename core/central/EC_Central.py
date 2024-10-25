@@ -155,7 +155,7 @@ def gestionarBrokerClientes():
                 printError("La localización {localizacion} no existe. Cancelando servicio a cliente {idCliente}")
                 publicarMensajeEnTopic("[EC_Central->EC_Customer_{idCliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR)
             else:
-                printInfo(f"Estado de los taxis (L, C): {taxisLibres}, {taxisConectados}")
+                printInfo(f"Estado de los taxis (L, C): {taxisLibres},  {taxisConectados}")
                 if len(taxisLibres) > 0:
                     taxiElegido = taxisLibres.pop()
                     printInfo(f"Asignando servicio del cliente {idCliente} al taxi {taxiElegido}.")
@@ -174,7 +174,7 @@ def gestionarBrokerClientes():
     #    sys.exit()
 
 def gestionarBrokerTaxis():
-    global BROKER_ADDR
+    global BROKER_ADDR, taxisLibres
     #TODO: try: except:
     consumidor = conectarBrokerConsumidor(BROKER_ADDR, TOPIC_TAXIS)
 
@@ -203,13 +203,24 @@ def gestionarBrokerTaxis():
                 posY = int(camposMensaje[2].split(",")[1])
                 printInfo(f"Movimiento ({posX},{posY}) recibido del taxi {idTaxi}.")
                 mapa.move(f"taxi_{idTaxi}", posX, posY)
-                mapa.printInfo()
+                mapa.print()
                 publicarMensajeEnTopic(f"[EC_Central->ALL][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]", TOPIC_TAXIS, BROKER_ADDR)
             elif camposMensaje[1] == "SERVICIO":
                 if camposMensaje[2] == "CLIENTE_RECOGIDO":
-                    pass
+                    publicarMensajeEnTopic(f"EC_Central->EC_Customer_{camposMensaje[3]}[RECOGIDO]", TOPIC_CLIENTES, BROKER_ADDR)
+                    mapa.move(f"cliente_{camposMensaje[3]}", 0, 0)
+                    mapa.print()
+                    publicarMensajeEnTopic(f"[EC_Central->ALL][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]", TOPIC_TAXIS, BROKER_ADDR)
+
                 if camposMensaje[2] == "CLIENTE_EN_DESTINO":
-                    publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{camposMensaje[3]}][OK]", TOPIC_CLIENTES)
+                    posX = int(camposMensaje[4].split(",")[0])
+                    posY = int(camposMensaje[4].split(",")[1])
+                    idCliente = camposMensaje[3]
+                    mapa.move(f"cliente_{idCliente}", posX, posY)
+                    mapa.print()
+                    publicarMensajeEnTopic(f"[EC_Central->ALL][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]", TOPIC_TAXIS, BROKER_ADDR)
+    
+                    publicarMensajeEnTopic(f"EC_Central->EC_Customer_{idCliente}[EN_DESTINO]", TOPIC_CLIENTES, BROKER_ADDR)
                     taxisLibres.append(idTaxi)
         else:
             #printInfo(mensaje)

@@ -36,10 +36,10 @@ class Map:
                                 print(f"{COLORES_ANSII.BACKGROUD_GREEN} {key[5:]} {COLORES_ANSII.ENDC}", end="")
                             else:
                                 print(f"{COLORES_ANSII.BACKGROUD_RED} {key[5:]} {COLORES_ANSII.ENDC}", end="")
-                        elif key.startswith('cliente'):
-                            print(f"{COLORES_ANSII.BACKGROUD_YELLOW} {key[8:]} {COLORES_ANSII.ENDC}", end="")
                         elif key.startswith('localizacion'):
                             print(f"{COLORES_ANSII.BACKGROUD_BLUE} {key[13:]} {COLORES_ANSII.ENDC}", end="")
+                        elif key.startswith('cliente'):
+                            print(f"{COLORES_ANSII.BACKGROUD_YELLOW} {key[8:]} {COLORES_ANSII.ENDC}", end="")
                         break
                 else:
                     print("   ", end="")
@@ -152,7 +152,7 @@ def create_window(map_instance):
     scrollbar.config(command=error_text.yview)
 
     # Método para añadir errores al Text
-    def addError(mensaje):
+    def PRI(mensaje):
         error_text.insert(tk.END, mensaje + "\n")
         error_text.see(tk.END)  # Scrollea automáticamente al final
 
