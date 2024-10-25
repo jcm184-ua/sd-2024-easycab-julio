@@ -1,3 +1,4 @@
+from datetime import datetime
 import socket
 from kafka import KafkaConsumer, KafkaProducer
 
@@ -8,8 +9,17 @@ TOPIC_TAXIS = 'TAXIS'
 TOPIC_CLIENTES = 'CLIENTES'
 TOPIC_ERRORES = 'ERRORES'
 
+def printInfo(mensaje):
+    print(datetime.now(), f"INFO: {mensaje}")
+
+def printWarning(mensaje):
+    print(datetime.now(), f"WARNING: {mensaje}")
+
+def printError(mensaje):
+    print(datetime.now(), f"ERROR: {mensaje}")
+
 def abrirSocketServidor(socket_addr):
-    print(f"INFO: Abriendo socket servidor en la dirección {socket_addr}.")
+    printInfo(f"Abriendo socket servidor en la dirección {socket_addr}.")
     socketAbierto = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # Evitar "OSError: [Errno 98] Address already in use" al matar y relanzar el servidor.
     socketAbierto.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -17,7 +27,7 @@ def abrirSocketServidor(socket_addr):
     return socketAbierto
 
 def abrirSocketCliente(socket_addr):
-    print(f"INFO: Abriendo socket cliente en la dirección {socket_addr}.")
+    printInfo(f"Abriendo socket cliente en la dirección {socket_addr}.")
     socketAbierto = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     socketAbierto.connect(socket_addr)
     return socketAbierto
@@ -29,14 +39,14 @@ def enviarMensajeServidor(conexion, mensaje):
     longitud_envio += b' ' * (HEADER - len(longitud_envio))
     conexion.send(longitud_envio)
     conexion.send(mensaje_codificado)
-    print(f"INFO: Mensaje '{mensaje}' enviado a través de conexión {conexion.getpeername()}.")
+    printInfo(f"Mensaje '{mensaje}' enviado a través de conexión {conexion.getpeername()}.")
 
 def recibirMensajeServidor(conexion):
     longitud_mensaje = conexion.recv(HEADER).decode(FORMAT)
     if longitud_mensaje:
         longitud_mensaje = int(longitud_mensaje)
         mensaje = conexion.recv(longitud_mensaje).decode(FORMAT)
-        print(f"INFO: Mensaje '{mensaje}' recibido a través de la conexión {conexion.getpeername()}.")
+        printInfo(f"Mensaje '{mensaje}' recibido a través de la conexión {conexion.getpeername()}.")
         return mensaje
 
 def recibirMensajeServidorSilent(conexion):
@@ -53,14 +63,14 @@ def enviarMensajeCliente(socket, mensaje):
     longitud_envio += b' ' * (HEADER - len(longitud_envio))
     socket.send(longitud_envio)
     socket.send(mensaje_codificado)
-    print(f'INFO: Mensaje "{mensaje}" enviado a través de conexión {socket.getsockname()}.')
+    printInfo(f"Mensaje '{mensaje}' enviado a través de conexión {socket.getsockname()}.")
 
 def recibirMensajeCliente(conexion):
     longitud_mensaje = conexion.recv(HEADER).decode(FORMAT)
     if longitud_mensaje:
         longitud_mensaje = int(longitud_mensaje)
         mensaje = conexion.recv(longitud_mensaje).decode(FORMAT)
-        print(f"INFO: Mensaje '{mensaje}' recibido a través de la conexión {conexion.getsockname()}.")
+        printInfo(f"Mensaje '{mensaje}' recibido a través de la conexión {conexion.getsockname()}.")
         return mensaje
 
 def recibirMensajeClienteSilent(conexion):
@@ -71,15 +81,15 @@ def recibirMensajeClienteSilent(conexion):
         return mensaje
 
 def conectarBrokerConsumidor(broker_addr, topic):
-    print(f"INFO: Conectando al broker en la dirección ({broker_addr}), topic {topic} como consumidor.")
+    printInfo(f"Conectando al broker en la dirección ({broker_addr}), topic {topic} como consumidor.")
     # return KafkaConsumer('CLIENTES',bootstrap_servers=CONEXION,auto_offset_reset='earliest')
     return KafkaConsumer(topic,bootstrap_servers=broker_addr)
 
 def publicarMensajeEnTopic(mensaje, topic, broker_addr):
-    print(f"INFO: Conectando al broker en la dirección ({broker_addr}) como productor.")
+    printInfo(f"Conectando al broker en la dirección ({broker_addr}) como productor.")
     conexion = KafkaProducer(bootstrap_servers=broker_addr)
     conexion.send(topic,(mensaje.encode(FORMAT)))
-    print(f"INFO: Mensaje {mensaje} publicado.")
+    printInfo(f"Mensaje {mensaje} publicado en topic {topic}.")
     # TODO: Fallo de publicación.
     conexion.close()
-    print("INFO: Desconectado del broker como productor.")
+    printInfo("Desconectado del broker como productor.")

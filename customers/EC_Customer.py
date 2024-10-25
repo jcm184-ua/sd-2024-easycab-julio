@@ -3,23 +3,24 @@ import time
 from kafka import KafkaProducer
 from kafka import KafkaConsumer
 import re
+import json
 
-sys.path.append('../../shared')
+sys.path.append('../shared')
 from EC_Map import Map
 from EC_Shared import *
-
-TOPIC_CLIENTES = 'CLIENTES'
 
 BROKER_IP = None
 BROKER_PORT = None
 BROKER_ADDR = None
 ID = None
 
+servicios = []
+
 def comprobarArgumentos(argumentos):
     if len(argumentos) != 4:
-        print("CHECKS: ERROR LOS ARGUMENTOS. Necesito estos argumentos: <BROKER_IP> <BROKER_PORT> <ID>")
+        printInfo("ERROR LOS ARGUMENTOS. Necesito estos argumentos: <BROKER_IP> <BROKER_PORT> <ID>")
         exit()
-    print("INFO: Número de argumentos correcto.")
+    printInfo("Número de argumentos correcto.")
 
 def asignarConstantes(argumentos):
     global BROKER_IP
@@ -30,24 +31,33 @@ def asignarConstantes(argumentos):
     BROKER_ADDR = BROKER_IP+":"+str(BROKER_PORT)
     global ID
     ID = argumentos[3]
-    print("INFO: Constantes asignadas")
+    printInfo("Constantes asignadas")
 
 def leerServicios():
-    # TODO: Leer fichero
-    servicios = []
-    servicios.append("E")
-    servicios.append("A")
-    servicios.append("D")
-    return servicios
+    global servicios
+    try:
+        with open('./EC_Requests.json') as json_file:
+            jsonServicios = json.load(json_file)
+            #print(jsonServicios)
+            for request in jsonServicios['Requests']:
+                printInfo(f"Cargando servicio {request['Id']}.")
+                servicios.append(request['Id'])
+
+            print(servicios)
+            printInfo("Servicios cargados con éxito.")
+    except IOError as error:
+        printInfo("FATAL: No se ha podido abrir el fichero.")
+        sys.exit()
+
 
 def esperarMensaje():
-    conexion = conectarBrokerConsumidor()
+    conexion = conectarBrokerConsumidor(BROKER_ADDR, TOPIC_CLIENTES)
     for mensaje in conexion:
         print(f"DEBUG: Mensaje recibido: {mensaje.value.decode(FORMAT)}")
         camposMensaje = re.findall('[^\[\]]+', mensaje.value.decode(FORMAT))
         if camposMensaje[0] == f"EC_Central->EC_Customer_{ID}":
             conexion.close()
-            print("INFO: Desconectado del broker como consumidor.")
+            printInfo("Desconectado del broker como consumidor.")
             return camposMensaje[1]
 
 def evaluarMensaje(mensajeRecibido):
@@ -60,32 +70,27 @@ def evaluarMensaje(mensajeRecibido):
         #TODO: Gestionar error
 
 def solicitarServicio(servicio):
-    print(f"INFO: Procedo a solicitar el servicio {servicio}")
+    printInfo(f"Procedo a solicitar el servicio {servicio}")
     publicarMensajeEnTopic(f"[EC_Customer_{ID}->EC_Central][{servicio}]", TOPIC_CLIENTES, BROKER_ADDR) # (Solicitar servicio
-    
+
     mensajeRecibido = esperarMensaje()
 
     if evaluarMensaje(mensajeRecibido):
-        print("INFO: Me han aceptado y completado el servicio.")
+        printInfo("Me han aceptado y completado el servicio.")
     else:
-        print("INFO: Me han denegado o cancelado el servicio.")    
+        printInfo("Me han denegado o cancelado el servicio.")
 
 def main():
     comprobarArgumentos(sys.argv)
     asignarConstantes(sys.argv)
-    print(f"INFO: BROKER_IP={BROKER_IP}, BROKER_PORT = {BROKER_PORT}, ID={ID}.")
+    leerServicios()
 
-    servicios = leerServicios()
-
-    #conexionProductor = conectarBrokerProductor(BROKER_IP, BROKER_PORT)
-    #conexionConsumidor = conectarBrokerConsumidor(BROKER_IP, BROKER_PORT)
-
-    # TODO: ¿Comprobar la conexión, brocker puede caer?
+    global servicios
     for servicio in servicios:
         solicitarServicio(servicio)
-        print("INFO: Esperando 4 segundos...")
+        printInfo("Esperando 4 segundos...")
         time.sleep(4)
-    print("INFO: He realizado todos los servicios que deseaba. Finalizando ejecución...")
+    printInfo("He realizado todos los servicios que deseaba. Finalizando ejecución...")
 
 if __name__ == "__main__":
     main()

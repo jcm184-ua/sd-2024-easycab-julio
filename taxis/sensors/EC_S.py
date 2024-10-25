@@ -15,9 +15,9 @@ TAXI_ADDR = None
 
 def comprobarArgumentos(argumentos):
     if len(argumentos) != 3:
-        print("CHECKS: ERROR LOS ARGUMENTOS. Necesito estos argumentos: <TAXI_IP> <TAXI_PORT>")
+        printInfo("ERROR LOS ARGUMENTOS. Necesito estos argumentos: <TAXI_IP> <TAXI_PORT>")
         exit()
-    print("INFO: Número de argumentos correcto.")
+    printInfo(f"Número de argumentos correcto.")
 
 def asignarConstantes(argumentos):
     global TAXI_IP
@@ -26,7 +26,7 @@ def asignarConstantes(argumentos):
     TAXI_PORT = int(argumentos[2])
     global TAXI_ADDR
     TAXI_ADDR =  (TAXI_IP, TAXI_PORT)
-    print("INFO: Constantes asignadas.")
+    printInfo(f"Constantes asignadas.")
 
 def gestionarConexionTaxi():
     global estado
@@ -41,9 +41,9 @@ def gestionarConexionTaxi():
                 time.sleep(1)
 
         except Exception as e:
-            print(f"WARNING: SOCKET CAIDO: {e}.")
+            printInfo(f"WARNING: SOCKET CAIDO: {e}.")
             time.sleep(3)
-            print(f"INFO: Reintentando conexión...")
+            printInfo(f"INFO: Reintentando conexión...")
 
 #TODO: PONER EL DE PEDRE
 def cambiar_estado():
@@ -53,12 +53,12 @@ def cambiar_estado():
         if opcion == "1":
             estado = not estado
             estado_str = "OK" if estado else "KO"
-            print(f"Estado cambiado a: {estado_str}")
+            printInfo(f"Estado cambiado a: {estado_str}")
         elif opcion == "2":
-            print("Saliendo...")
+            printInfo("Saliendo...")
             break
         else:
-            print("Opción inválida, intenta de nuevo.")
+            printInfo("Opción inválida, intenta de nuevo.")
         time.sleep(1)  # Pequeño retardo para evitar spam en el menú
 
 def main():
