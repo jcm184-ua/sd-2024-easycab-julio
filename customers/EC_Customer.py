@@ -3,6 +3,7 @@ import time
 from kafka import KafkaProducer
 from kafka import KafkaConsumer
 import re
+import json
 
 sys.path.append('../shared')
 from EC_Map import Map
@@ -12,6 +13,8 @@ BROKER_IP = None
 BROKER_PORT = None
 BROKER_ADDR = None
 ID = None
+
+servicios = []
 
 def comprobarArgumentos(argumentos):
     if len(argumentos) != 4:
@@ -31,12 +34,21 @@ def asignarConstantes(argumentos):
     printInfo("Constantes asignadas")
 
 def leerServicios():
-    # TODO: Leer fichero
-    servicios = []
-    servicios.append("E")
-    servicios.append("A")
-    servicios.append("D")
-    return servicios
+    global servicios
+    try:
+        with open('./EC_Requests.json') as json_file:
+            jsonServicios = json.load(json_file)
+            #print(jsonServicios)
+            for request in jsonServicios['Requests']:
+                printInfo(f"Cargando servicio {request['Id']}.")
+                servicios.append(request['Id'])
+
+            print(servicios)
+            printInfo("Servicios cargados con éxito.")
+    except IOError as error:
+        printInfo("FATAL: No se ha podido abrir el fichero.")
+        sys.exit()
+
 
 def esperarMensaje():
     conexion = conectarBrokerConsumidor(BROKER_ADDR, TOPIC_CLIENTES)
@@ -71,14 +83,9 @@ def solicitarServicio(servicio):
 def main():
     comprobarArgumentos(sys.argv)
     asignarConstantes(sys.argv)
-    printInfo(f"BROKER_IP={BROKER_IP}, BROKER_PORT = {BROKER_PORT}, ID={ID}.")
+    leerServicios()
 
-    servicios = leerServicios()
-
-    #conexionProductor = conectarBrokerProductor(BROKER_IP, BROKER_PORT)
-    #conexionConsumidor = conectarBrokerConsumidor(BROKER_IP, BROKER_PORT)
-
-    # TODO: ¿Comprobar la conexión, brocker puede caer?
+    global servicios
     for servicio in servicios:
         solicitarServicio(servicio)
         printInfo("Esperando 4 segundos...")
