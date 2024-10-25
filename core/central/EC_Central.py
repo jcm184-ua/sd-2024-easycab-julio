@@ -13,7 +13,6 @@ from EC_Shared import *
 from EC_Map import Map
 
 DATABASE = './resources/database.db'
-SCRIPT = './resources/iniciarBBDD.sql'
 
 HOST = "" # Simbólico, nos permite escuchar en todas las interfaces de red
 LISTEN_PORT = None
@@ -22,12 +21,11 @@ BROKER_IP = None
 BROKER_PORT = None
 BROKER_ADDR = None
 
-diccionarioLocalizaciones = {}
 taxisConectados = [] # [1, 2, 3, 5]
 taxisLibres = [] # [2, 3]
 mapa = Map()
 
-def     comprobarArgumentos(argumentos):
+def comprobarArgumentos(argumentos):
     if len(argumentos) != 4:
         printInfo("CHECKS: ERROR LOS ARGUMENTOS. Necesito estos argumentos: <LISTEN_PORT> <BROKER_IP> <BROKER_PORT>")
         exit()
@@ -56,8 +54,8 @@ def leerConfiguracionMapa():
             for key in jsonLocalizaciones:
                 value = jsonLocalizaciones[key]
                 for item in value:
-                    diccionarioLocalizaciones.update({item['Id'] : item['POS']})
-                    printInfo(f"Cargada localización {item['Id']} con coordenadas ({item['POS']}).")
+                    mapa.set(f"localizacion_{item['Id']}", item['POS'].split(",")[0], item['POS'].split(",")[1])
+                    #printInfo(f"Cargada localización {item['Id']} con coordenadas ({item['POS']}).")
 
             #printInfo(diccionarioLocalizaciones)
             printInfo("Mapa cargado con éxito.")
@@ -65,29 +63,45 @@ def leerConfiguracionMapa():
         printInfo("FATAL: No se ha podido abrir el fichero.")
         sys.exit()
 
-    leerBBDD()
-
     #TODO: JSON FILE DEL ULTIMO ESTADO DE LOS TAXIS
-    mapa.diccionarioPosiciones.update({"taxi_1" : "2,3"})
-    mapa.diccionarioPosiciones.update({"taxi_2" : "8,2"})
-    mapa.diccionarioPosiciones.update({"taxi_3": "10,4"})
-    mapa.diccionarioPosiciones.update({"cliente_d" : "3,5"})
-    mapa.diccionarioPosiciones.update({"cliente_e" : "7,8"})
+
     mapa.diccionarioPosiciones.update({"localizacion_A" : "9,15"})
     mapa.diccionarioPosiciones.update({"localizacion_C" : "14,7"})
 
 def leerBBDD():
-    #global taxisConectados, taxisLibres
+    # Cargar ubicaciones de los taxis y clientes de la base de datos
     conexionBBDD = sqlite3.connect(DATABASE)
     cursor = conexionBBDD.cursor()
 
-    #cursor.execute("SELECT id FROM taxis WHERE estado = 'conectado'")
-    #taxisConectados = [int(x[0]) for x in cursor.fetchall()]
+    cursor.execute("SELECT id, posicion FROM taxis")
+    taxis = cursor.fetchall()
+    for taxi in taxis:
+        mapa.set(f"taxi_{taxi[0]}", int(taxi[1].split(",")[0]), int(taxi[1].split(",")[1]))
+        #printInfo(f"Cargado taxi {taxi[0]} con posición {taxi[1]}.")
+    printInfo(f"Ubiación taxis cargada.")
 
-    #cursor.execute("SELECT id FROM taxis WHERE estado = 'libre'")
-    #taxisLibres = [int(x[0]) for x in cursor.fetchall()]
+    cursor.execute("SELECT id, posicion FROM clientes")
+    clientes = cursor.fetchall()
+    for cliente in clientes:
+        mapa.set(f"cliente_{cliente[0]}", int(cliente[1].split(",")[0]), int(cliente[1].split(",")[1]))
+        #printInfo(f"Cargado cliente {cliente[0]} con posición {cliente[1]}.")
+    printInfo(f"Ubiación clientes cargada.")
 
     conexionBBDD.close()
+
+def ejecutarSentenciaBBDD(sentencia):
+    printInfo(f"Ejecutando sentencia en la base de datos: {sentencia}")
+    try:
+        conexionBBDD = sqlite3.connect(DATABASE)
+        cursor = conexionBBDD.cursor()
+        cursor.execute(sentencia)
+        resultado = cursor.fetchall()
+        conexionBBDD.commit()
+        conexionBBDD.close()
+        return resultado
+    except Exception as a:
+        printError(a)
+        return None
 
 def ejecutarScriptBBDD(script):
     conexionBBDD = sqlite3.connect(DATABASE)
@@ -160,6 +174,10 @@ def gestionarBrokerClientes():
                     taxiElegido = taxisLibres.pop()
                     printInfo(f"Asignando servicio del cliente {idCliente} al taxi {taxiElegido}.")
                     publicarMensajeEnTopic(f"[EC_Central->EC_DE_{taxiElegido}][SERVICIO][{idCliente}->{localizacion}]", TOPIC_TAXIS, BROKER_ADDR)
+                    taxisLibres.remove(taxiElegido)
+                    ejecutarSentenciaBBDD("UPDATE taxis SET estado = 'servicio' WHERE id = {taxiElegido}")
+                    ejecutarSentenciaBBDD("UPDATE taxis SET cliente = {idCliente} WHERE id = {taxiElegido}")
+                    ejecutarSentenciaBBDD("UPDATE taxis SET destino = {localizacion} WHERE id = {taxiElegido}")
                 else:
                     printError("No hay taxis disponibles para el cliente {idCliente}.")
                     publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{idCliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR)
@@ -202,6 +220,7 @@ def gestionarBrokerTaxis():
                 posX = int(camposMensaje[2].split(",")[0])
                 posY = int(camposMensaje[2].split(",")[1])
                 printInfo(f"Movimiento ({posX},{posY}) recibido del taxi {idTaxi}.")
+                ejecutarSentenciaBBDD(f"UPDATE taxis SET posicion = '{posX},{posY}' WHERE id = {idTaxi}")
                 mapa.move(f"taxi_{idTaxi}", posX, posY)
                 mapa.print()
                 publicarMensajeEnTopic(f"[EC_Central->ALL][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]", TOPIC_TAXIS, BROKER_ADDR)
@@ -219,9 +238,12 @@ def gestionarBrokerTaxis():
                     mapa.move(f"cliente_{idCliente}", posX, posY)
                     mapa.print()
                     publicarMensajeEnTopic(f"[EC_Central->ALL][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]", TOPIC_TAXIS, BROKER_ADDR)
-    
+
                     publicarMensajeEnTopic(f"EC_Central->EC_Customer_{idCliente}[EN_DESTINO]", TOPIC_CLIENTES, BROKER_ADDR)
                     taxisLibres.append(idTaxi)
+                    ejecutarSentenciaBBDD("UPDATE taxis SET estado = 'esperando' WHERE id = {taxiElegido}")
+                    ejecutarSentenciaBBDD("UPDATE taxis SET cliente = NULL WHERE id = {taxiElegido}")
+                    ejecutarSentenciaBBDD("UPDATE taxis SET destino = NULL WHERE id = {taxiElegido}")
         else:
             #printInfo(mensaje)
             #printInfo(mensaje.value.decode(FORMAT))
@@ -239,14 +261,16 @@ def autenticarTaxi(conexion, direccion):
             longitud_mensaje = int(longitud_mensaje)
             mensaje = conexion.recv(longitud_mensaje).decode(FORMAT)
             partesMensaje = re.findall('[^\[\]]+', mensaje)
-            printInfo(f"He recibido del cliente {direccion} el mensaje: {mensaje}")
+            printInfo(f"He recibido del socket cliente {direccion} el mensaje: {mensaje}")
             idTaxi = partesMensaje[0].split("->")[0][6:]
             if comprobarTaxi(idTaxi): #COMPROBAR BASE DE DATOS Y VER SI YA HAY UNO CONECTADO
                 try:
-
                     posicion = mapa.getPosition(f"taxi_{idTaxi}")
-                    enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][AUTHORIZED][{posicion.split(',')[0]},{posicion.split(',')[1]}]")
+                    taxiBBDD = ejecutarSentenciaBBDD(f"SELECT * FROM taxis WHERE id = {idTaxi}")
+                    #[EC_Central->EC_DE_1][AUTHORIZED][1,2][Cliente][Destino]
+                    enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][AUTHORIZED][{posicion.split(',')[0]},{posicion.split(',')[1]}][{taxiBBDD[0][4]}][{taxiBBDD[0][5]}]")
                     # SE PUEDE HACER POR KAFKA TAMBIEN
+                    # TODO: Juntar en un solo mensaje?
                     enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]")
                 except:
                     printError("Taxi no encontrado en el mapa")
@@ -320,6 +344,9 @@ def main():
     asignarConstantes(sys.argv)
     leerConfiguracionMapa()
     leerBBDD()
+
+    printInfo("Mostrando mapa al momento del arranaque.")
+    mapa.print()
 
     hiloClientes = threading.Thread(target=gestionarBrokerClientes)
     hiloClientes.start()
