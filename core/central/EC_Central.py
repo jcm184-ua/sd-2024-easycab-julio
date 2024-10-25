@@ -23,7 +23,7 @@ taxisConectados = [] # [1, 2, 3, 5]
 taxisLibres = [] # [2, 3]
 mapa = Map()
 
-def comprobarArgumentos(argumentos):
+def     comprobarArgumentos(argumentos):
     if len(argumentos) != 4:
         printInfo("CHECKS: ERROR LOS ARGUMENTOS. Necesito estos argumentos: <LISTEN_PORT> <BROKER_IP> <BROKER_PORT>")
         exit()
@@ -252,8 +252,8 @@ def asignarServicio(taxi, cliente, localizacion):
 
     publicarMensaje(f"EC_Central->EC_Customer_{cliente}[OK]", TOPIC_CLIENTES)
 
-    global nuevoTaxisLibres
-    nuevoTaxisLibres.append(taxi)
+    global taxisLibres
+    taxisLibres.append(taxi)
 
 def main():
     comprobarArgumentos(sys.argv)

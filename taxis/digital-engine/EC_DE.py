@@ -180,23 +180,42 @@ def gestionarBroker():
             printInfo(f"Mensaje desconocido descartado: {mensaje}")
 
 def mover(x, y):
-    if (x > 1) or (x < -1) or (y > 1) or (y < -1):
-        printError("Movimiento demasiado grande")
+    if (x > 20) or (x < 0) or (y > 20) or (y < 0):
+        print("ERROR: Movimiento demasiado grande")
     else:
-        printInfo(f"Moviendo en dirección ({x},{y})")
+        print(f"INFO: Moviendo a dirección ({x},{y})")
         publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][MOVIMIENTO][{x},{y}]", TOPIC_TAXIS, BROKER_ADDR)
 
-def movimientosAleatorios():
+def calcularMovimientos():
+    global posX, posY, destX, destY
+
     while True:
         if estadoSensor:
-            printInfo("Movimiento aleatorio", threading.get_ident())
-            mover(1, 1)
-        time.sleep(3)
+            if destX != None or destY != None:
+                if posX != destX or posY != destY:        
+                    delta_x = int(destX) - int(posX)
+                    delta_y = int(destY) - int(posY)
+
+                    step_x = 1 if delta_x > 0 else -1 if delta_x < 0 else 0
+                    step_y = 1 if delta_y > 0 else -1 if delta_y < 0 else 0
+
+                    print(f"Me muevo de {posX},{posY} a {destX},{destY} en dirección ({step_x},{step_y})")
+
+                    posX = int(posX) + step_x
+                    posY = int(posY) + step_y
+
+                    mover(posX, posY)
+
+            #print(datetime.now(), "INFO: Movimiento aleatorio", threading.get_ident())
+            #mover(1, 1)
+        time.sleep(1)
 
 
 def main():
     comprobarArgumentos(sys.argv)
     asignarConstantes(sys.argv)
+
+    threading.Thread(target=calcularMovimientos).start()
 
     hiloSocketSensores = threading.Thread(target=gestionarSocketSensores)
     hiloSocketSensores.start()
