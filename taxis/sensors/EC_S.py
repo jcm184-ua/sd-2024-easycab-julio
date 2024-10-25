@@ -29,15 +29,15 @@ def asignarConstantes(argumentos):
     printInfo(f"Constantes asignadas.")
 
 def gestionarConexionTaxi():
-    global estado
+    global estadoSensor
 
     while True:
         try:
             socket = abrirSocketCliente(TAXI_ADDR)
             while True:
                 # MEJORAR MENSAJE [EC_Sensor->EC_DE_?][OK]
-                mensaje = "OK" if estado else "KO"
-                enviarMensajeCliente(socket, mensaje)
+                printInfo(f"Enviando estado del sensor: {estadoSensor}")
+                enviarMensajeCliente(socket, estadoSensor)
                 time.sleep(1)
 
         except Exception as e:
@@ -47,19 +47,14 @@ def gestionarConexionTaxi():
 
 #TODO: PONER EL DE PEDRE
 def cambiar_estado():
-    global estado
+    global estadoSensor
     while True:
-        opcion = input("\nMenú:\n1. Cambiar estado\n2. Salir\nSelecciona una opción: ")
-        if opcion == "1":
-            estado = not estado
-            estado_str = "OK" if estado else "KO"
-            printInfo(f"Estado cambiado a: {estado_str}")
-        elif opcion == "2":
-            printInfo("Saliendo...")
-            break
+        if estadoSensor == "OK":
+            input("Presiona Enter para generar una incidencia (KO)...\n")
+            estadoSensor = "KO"
         else:
-            printInfo("Opción inválida, intenta de nuevo.")
-        time.sleep(1)  # Pequeño retardo para evitar spam en el menú
+            input("Presiona Enter para arreglar una incidencia (KO)...\n")
+            estadoSensor = "OK"
 
 def main():
     comprobarArgumentos(sys.argv)
