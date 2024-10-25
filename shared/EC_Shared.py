@@ -89,7 +89,7 @@ def publicarMensajeEnTopic(mensaje, topic, broker_addr):
     printInfo(f"Conectando al broker en la dirección ({broker_addr}) como productor.")
     conexion = KafkaProducer(bootstrap_servers=broker_addr)
     conexion.send(topic,(mensaje.encode(FORMAT)))
-    printInfo(f"Mensaje {mensaje} publicado.")
+    printInfo(f"Mensaje {mensaje} publicado en topic {topic}.")
     # TODO: Fallo de publicación.
     conexion.close()
     printInfo("Desconectado del broker como productor.")

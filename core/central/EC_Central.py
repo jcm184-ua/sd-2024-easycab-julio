@@ -89,6 +89,8 @@ def iniciarBBDD():
 
 def gestionarBrokerClientes():
     global BROKER_ADDR
+    global taxisLibres, taxisConectados
+
     printInfo(f"Conectando al broker en la dirección ({BROKER_ADDR}) como consumidor CLIENTES.")
     #TODO: try:
     consumidor = KafkaConsumer(TOPIC_CLIENTES,bootstrap_servers=BROKER_ADDR) # ,auto_offset_reset='earliest')
@@ -102,21 +104,23 @@ def gestionarBrokerClientes():
             pass
         elif camposMensaje[0].startswith("EC_Customer"):
             # ['EC_Customer_a->EC_Central', 'E']
+            time.sleep(0.5) # Evitar que se termine el servicio antes de que el cliente lo pueda leer !!necesario
             idCliente = camposMensaje[0].split("->")[0][12:]
             localizacion = camposMensaje[1]
             printInfo(f"Solicitud de servicio recibida, cliente {idCliente}, destino {localizacion}.")
             global diccionarioLocalizaciones
             if localizacion not in diccionarioLocalizaciones:
                 printInfo(f"ERROR: La localización {localizacion} no existe. Cancelando servicio a cliente {idCliente}")
-                publicarMensajeEnTopic("EC_Central->EC_Customer_{idCliente}[KO]", TOPIC_CLIENTES, BROKER_ADDR)
+                publicarMensajeEnTopic("[EC_Central->EC_Customer_{idCliente}[KO]", TOPIC_CLIENTES, BROKER_ADDR)
             else:
+                printInfo(f"Estado de los taxis (L, C): {taxisLibres}, {taxisConectados}")
                 if len(taxisLibres) > 0:
                     taxiElegido = taxisLibres.pop()
                     printInfo(f"Asignando servicio del cliente {idCliente} al taxi {taxiElegido}.")
-                    publicarMensajeEnTopic(f"EC_Central->EC_DE_{taxiElegido}[SERVICIO][{idCliente},{localizacion}]", TOPIC_TAXIS, BROKER_ADDR)
+                    publicarMensajeEnTopic(f"[EC_Central->EC_DE_{taxiElegido}[SERVICIO][{idCliente}->{localizacion}]", TOPIC_TAXIS, BROKER_ADDR)
                 else:
                     printInfo(f"ERROR: No hay taxis disponibles para el cliente {idCliente}.")
-                    publicarMensajeEnTopic(f"EC_Central->EC_Customer][KO]", TOPIC_TAXIS, BROKER_ADDR)
+                    publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{idCliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR)
 
         else:
             #printInfo(mensaje)
@@ -176,37 +180,38 @@ def gestionarBrokerTaxis():
 
 # Devuelve id del taxi o -1 si no autentifica
 def autenticarTaxi(conexion, direccion):
-    while True:
-        try:
-            longitud_mensaje = conexion.recv(HEADER).decode(FORMAT)
-            if longitud_mensaje:
-                longitud_mensaje = int(longitud_mensaje)
-                mensaje = conexion.recv(longitud_mensaje).decode(FORMAT)
-                printInfo(f"He recibido del cliente {direccion} el mensaje: {mensaje}")
-                idTaxi = mensaje[7:8]
-                if True: #COMPROBAR BASE DE DATOS Y VER SI YA HAY UNO CONECTADO
-                    printInfo("El taxi existe y no está conectado")
-                    try:
-                        posicion = mapa.getPosition(f"taxi_{idTaxi}")
+    try:
+        longitud_mensaje = conexion.recv(HEADER).decode(FORMAT)
+        if longitud_mensaje:
+            longitud_mensaje = int(longitud_mensaje)
+            mensaje = conexion.recv(longitud_mensaje).decode(FORMAT)
+            printInfo(f"He recibido del cliente {direccion} el mensaje: {mensaje}")
+            idTaxi = mensaje[7:8]
+            if True: #COMPROBAR BASE DE DATOS Y VER SI YA HAY UNO CONECTADO
+                printInfo("El taxi existe y no está conectado")
+                try:
+                    posicion = mapa.getPosition(f"taxi_{idTaxi}")
 
-                        enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][AUTHORIZED][{posicion.split(',')[0]},{posicion.split(',')[1]}]")
-                        # SE PUEDE HACER POR KAFKA TAMBIEN
-                        enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]")
-                    except:
-                        printInfo("ERROR: Taxi no encontrado en el mapa")
-                else:
-                    printInfo("El taxi no existe o está conectado")
-                    enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][NOT_AUTHORIZED]")
-                    return -1
+                    enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][AUTHORIZED][{posicion.split(',')[0]},{posicion.split(',')[1]}]")
+                    # SE PUEDE HACER POR KAFKA TAMBIEN
+                    enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]")
+                except:
+                    printInfo("ERROR: Taxi no encontrado en el mapa")
             else:
-                printInfo(f"ERROR: MENSAJE VACIO, CONEXION PERDIDA.")
-                break
-        except Exception as e:
-            printInfo(f"ERROR: EXCEPCION, CONEXION PERDIDA: {e}")
+                printInfo("El taxi no existe o está conectado")
+                enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][NOT_AUTHORIZED]")
+                return -1
+        else:
+            printInfo(f"ERROR: MENSAJE VACIO, CONEXION PERDIDA.")
+            return -1
+    except Exception as e:
+        printInfo(f"ERROR: EXCEPCION, CONEXION PERDIDA: {e}")
+
     return idTaxi
 
 
 def gestionarTaxi(conexion, direccion):
+    global taxisConectados, taxisLibres
     idTaxi = autenticarTaxi(conexion, direccion)
 
     if idTaxi != -1:
