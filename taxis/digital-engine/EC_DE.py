@@ -152,12 +152,13 @@ def gestionarConexionCentral():
                             posX = camposMensaje[2].split(",")[0]
                             posY = camposMensaje[2].split(",")[1]
                             recibirMapaLogin(socket)
+                            hiloMovimientos= threading.Thread(target=manejarMovimientos)
+                            hiloMovimientos.start()
 
                         except:
                             printError("ENGINE: Error al decodificar mensaje 1")
 
-                            hiloMovimientos= threading.Thread(target=manejarMovimientos)
-                            hiloMovimientos.start()
+
 
                     elif mensaje == f"[EC_Central->EC_DE_{ID}][NOT_AUTHORIZED]":
                         printError("ENGINE: Autentificación incorrecta. Finalizando ejecución.")
