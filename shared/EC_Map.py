@@ -97,6 +97,10 @@ class Map:
     def loadActiveTaxis(self, jsonData):
         self.taxisActivos = json.loads(jsonData.replace("(", "[").replace(")", "]"))
 
+    def set(self, key, x, y):
+        self.diccionarioPosiciones[key] = f"{x},{y}"
+        printInfo(f"Posición de {key} establecida en {x},{y}")
+
     def move(self, key, x, y):
         initX = x
         initY = y
