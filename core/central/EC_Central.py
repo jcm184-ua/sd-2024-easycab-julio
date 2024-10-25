@@ -3,6 +3,7 @@ import time
 import json
 import re
 import sqlite3
+from sqlite3 import OperationalError
 import socket
 import threading
 from kafka import KafkaConsumer, KafkaProducer
@@ -10,6 +11,9 @@ from kafka import KafkaConsumer, KafkaProducer
 sys.path.append('../../shared')
 from EC_Shared import *
 from EC_Map import Map
+
+DATABASE = './resources/database.db'
+SCRIPT = './resources/iniciarBBDD.sql'
 
 HOST = "" # Simbólico, nos permite escuchar en todas las interfaces de red
 LISTEN_PORT = None
@@ -47,7 +51,7 @@ def asignarConstantes(argumentos):
 def leerConfiguracionMapa():
     global diccionarioLocalizaciones
     try:
-        with open('./EC_locations.json') as json_file:
+        with open('./resources/EC_locations.json') as json_file:
             jsonLocalizaciones = json.load(json_file)
             for key in jsonLocalizaciones:
                 value = jsonLocalizaciones[key]
@@ -61,6 +65,8 @@ def leerConfiguracionMapa():
         printInfo("FATAL: No se ha podido abrir el fichero.")
         sys.exit()
 
+    leerBBDD()
+
     #TODO: JSON FILE DEL ULTIMO ESTADO DE LOS TAXIS
     mapa.diccionarioPosiciones.update({"taxi_1" : "2,3"})
     mapa.diccionarioPosiciones.update({"taxi_2" : "8,2"})
@@ -70,11 +76,24 @@ def leerConfiguracionMapa():
     mapa.diccionarioPosiciones.update({"localizacion_A" : "9,15"})
     mapa.diccionarioPosiciones.update({"localizacion_C" : "14,7"})
 
-def iniciarBBDD():
-    conexionBBDD = sqlite3.connect('database.db')
+def leerBBDD():
+    #global taxisConectados, taxisLibres
+    conexionBBDD = sqlite3.connect(DATABASE)
     cursor = conexionBBDD.cursor()
 
-    fd = open('crearBBDD.sql', 'r')
+    #cursor.execute("SELECT id FROM taxis WHERE estado = 'conectado'")
+    #taxisConectados = [int(x[0]) for x in cursor.fetchall()]
+
+    #cursor.execute("SELECT id FROM taxis WHERE estado = 'libre'")
+    #taxisLibres = [int(x[0]) for x in cursor.fetchall()]
+
+    conexionBBDD.close()
+
+def ejecutarScriptBBDD(script):
+    conexionBBDD = sqlite3.connect(DATABASE)
+    cursor = conexionBBDD.cursor()
+
+    fd = open(script, 'r')
     sqlFile = fd.read()
     fd.close()
 
@@ -82,10 +101,23 @@ def iniciarBBDD():
     for command in sqlCommands:
         try:
             cursor.execute(command)
-        except OperationalError as msg:
-            printInfo("Command skipped: ", msg)
+        except sqlite3.OperationalError as msg:
+            printError(msg)
+
+    conexionBBDD.commit()
+    conexionBBDD.close()
 
     printInfo("Base de datos preparada.")
+
+def comprobarTaxiEnBBDD(idTaxi):
+    conexionBBDD = sqlite3.connect(DATABASE)
+    cursor = conexionBBDD.cursor()
+
+    cursor.execute("SELECT id FROM taxis WHERE id = ?", (idTaxi))
+    if cursor.fetchone() == None:
+        return False
+    else:
+        return True
 
 def gestionarBrokerClientes():
     global BROKER_ADDR
@@ -167,7 +199,7 @@ def gestionarBrokerTaxis():
                 if camposMensaje[2] == "CLIENTE_RECOGIDO":
                     pass
                 if camposMensaje[2] == "CLIENTE_EN_DESTINO":
-                    publicarMensaje(f"EC_Central->EC_Customer_{camposMensaje[3]}[OK]", TOPIC_CLIENTES)
+                    publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{camposMensaje[3]}][OK]", TOPIC_CLIENTES)
                     nuevoTaxisLibres.append(idTaxi)
         else:
             #printInfo(mensaje)
@@ -187,7 +219,7 @@ def autenticarTaxi(conexion, direccion):
             mensaje = conexion.recv(longitud_mensaje).decode(FORMAT)
             printInfo(f"He recibido del cliente {direccion} el mensaje: {mensaje}")
             idTaxi = mensaje[7:8]
-            if True: #COMPROBAR BASE DE DATOS Y VER SI YA HAY UNO CONECTADO
+            if not comprobarTaxiEnBBDD(idTaxi): #COMPROBAR BASE DE DATOS Y VER SI YA HAY UNO CONECTADO
                 printInfo("El taxi existe y no está conectado")
                 try:
                     posicion = mapa.getPosition(f"taxi_{idTaxi}")
@@ -255,13 +287,19 @@ def asignarServicio(taxi, cliente, localizacion):
     global nuevoTaxisLibres
     nuevoTaxisLibres.append(taxi)
 
+def gestionarLoginTaxis():
+    socketEscucha = abrirSocketServidor(THIS_ADDR)
+    socketEscucha.listen()
+    while True:
+        conexion, direccion = socketEscucha.accept()
+        hiloTaxi = threading.Thread(target=gestionarTaxi, args=(conexion, direccion))
+        hiloTaxi.start()
+
 def main():
     comprobarArgumentos(sys.argv)
     asignarConstantes(sys.argv)
     leerConfiguracionMapa()
-
-    #TODO: Popular base de datos en arranque o ver si habíamos crasheado
-    iniciarBBDD()
+    leerBBDD()
 
     hiloClientes = threading.Thread(target=gestionarBrokerClientes)
     hiloClientes.start()
@@ -269,14 +307,8 @@ def main():
     hiloTaxis = threading.Thread(target=gestionarBrokerTaxis)
     hiloTaxis.start()
 
-    # Autentificaciones y saber si taxi cae
-    socketEscucha = abrirSocketServidor(THIS_ADDR)
-    socketEscucha.listen()
-    while True:
-        #printInfo("acabo de iterar")
-        conexion, direccion = socketEscucha.accept()
-        hiloTaxi = threading.Thread(target=gestionarTaxi, args=(conexion, direccion))
-        hiloTaxi.start()
+    hiloLoginTaxis = threading.Thread(target=gestionarLoginTaxis)
+    hiloLoginTaxis.start()
 
 if __name__ == "__main__":
     main()
