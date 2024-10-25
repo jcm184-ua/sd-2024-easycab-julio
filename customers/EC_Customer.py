@@ -4,6 +4,7 @@ from kafka import KafkaProducer
 from kafka import KafkaConsumer
 import re
 import json
+import threading
 
 sys.path.append('../shared')
 from EC_Map import Map
@@ -51,14 +52,38 @@ def leerServicios():
 
 
 def esperarMensaje():
+    global enServicio
+
     conexion = conectarBrokerConsumidor(BROKER_ADDR, TOPIC_CLIENTES)
-    for mensaje in conexion:
-        print(f"DEBUG: Mensaje recibido: {mensaje.value.decode(FORMAT)}")
-        camposMensaje = re.findall('[^\[\]]+', mensaje.value.decode(FORMAT))
-        if camposMensaje[0] == f"EC_Central->EC_Customer_{ID}":
-            conexion.close()
-            printInfo("Desconectado del broker como consumidor.")
-            return camposMensaje[1]
+    while True:
+        for mensaje in conexion:
+            print(f"DEBUG: Mensaje recibido: {mensaje.value.decode(FORMAT)}")
+            camposMensaje = re.findall('[^\[\]]+', mensaje.value.decode(FORMAT))
+            if camposMensaje[0] == f"EC_Central->EC_Customer_{ID}":
+            
+                if camposMensaje[1] == "OK":
+                    enServicio = True
+                    printInfo("Me han aceptado el servicio.")
+                    
+                elif camposMensaje[1] == "KO":
+                    enServicio = False   
+                    printInfo("Me han denegado el servicio.")
+                    break
+                
+                elif camposMensaje[1] == "RECOGIDO":
+                    enServicio = True
+                    printInfo("Me han recogido.")
+                
+                elif camposMensaje[1] == "EN_DESTINO":
+                    enServicio = False
+                    printInfo("Me han dejado en destino.")
+                    break
+            
+        if not enServicio:
+            break
+            #conexion.close()
+            #printInfo("Desconectado del broker como consumidor.")
+            #return camposMensaje[1]
 
 def evaluarMensaje(mensajeRecibido):
     if mensajeRecibido == "OK":
@@ -73,21 +98,32 @@ def solicitarServicio(servicio):
     printInfo(f"Procedo a solicitar el servicio {servicio}")
     publicarMensajeEnTopic(f"[EC_Customer_{ID}->EC_Central][{servicio}]", TOPIC_CLIENTES, BROKER_ADDR) # (Solicitar servicio
 
-    mensajeRecibido = esperarMensaje()
+    esperarMensaje()
+    #threading.Thread(target=esperarMensaje).start()
 
-    if evaluarMensaje(mensajeRecibido):
-        printInfo("Me han aceptado y completado el servicio.")
-    else:
-        printInfo("Me han denegado o cancelado el servicio.")
+    #if evaluarMensaje(mensajeRecibido):
+    #    printInfo("Me han aceptado y completado el servicio.")
+    #else:
+    #    printInfo("Me han denegado o cancelado el servicio.")
 
 def main():
+    global enServicio
+    enServicio = False
+
     comprobarArgumentos(sys.argv)
     asignarConstantes(sys.argv)
     leerServicios()
 
     global servicios
     for servicio in servicios:
+        while enServicio:
+            printInfo("Esperando a que finalice el servicio anterior...")
+            time.sleep(1)
+        
         solicitarServicio(servicio)
+
+        
+
         printInfo("Esperando 4 segundos...")
         time.sleep(4)
     printInfo("He realizado todos los servicios que deseaba. Finalizando ejecución...")

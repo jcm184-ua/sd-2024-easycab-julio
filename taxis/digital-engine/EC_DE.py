@@ -2,6 +2,7 @@ import sys
 import re
 import socket
 import threading
+import json
 from kafka import KafkaProducer, KafkaConsumer
 import time
 
@@ -29,9 +30,13 @@ mapa = Map()
 
 posX = None
 posY = None
+cltX = None
+cltY = None
 destX = None
 destY = None
 
+clienteARecoger = None
+clienteRecogido = False
 
 def comprobarArgumentos(argumentos):
     if len(argumentos) != 7:
@@ -146,8 +151,10 @@ def gestionarConexionCentral():
                             posX = camposMensaje[2].split(",")[0]
                             posY = camposMensaje[2].split(",")[1]
                             recibirMapa(socket)
-                            hiloMovimientosAleatorios = threading.Thread(target=movimientosAleatorios)
-                            #hiloMovimientosAleatorios.start()
+
+                            hiloMovimientos= threading.Thread(target=manejarMovimientos)
+                            hiloMovimientos.start()
+
                         except:
                             printError("ENGINE: Error al decodificar mensaje 1")
                     elif mensaje == f"[EC_Central->EC_DE_{ID}][NOT_AUTHORIZED]":
@@ -163,59 +170,120 @@ def gestionarConexionCentral():
         #Una vez autorizados y con posición, esperar a que se nos indique un servicio
 
 def gestionarBroker():
-    global mapa
+    global mapa, cltX, cltY, destX, destY, clienteARecoger
 
     printInfo(f"Conectando al broker en la dirección ({BROKER_ADDR}) como consumidor.")
     consumidor = conectarBrokerConsumidor(BROKER_ADDR, TOPIC_TAXIS)
-    for mensaje in consumidor:
-        camposMensaje = re.findall('[^\[\]]+', mensaje.value.decode(FORMAT))
-        #print(camposMensaje)
-        if camposMensaje[0] == ("EC_Central->ALL"):
-            mapa.loadJson(camposMensaje[1])
-            mapa.loadActiveTaxis(camposMensaje[2])
-            mapa.print()
-        else:
-            # TODO: Informar mas que decir que error
-            pass
-            printInfo(f"Mensaje desconocido descartado: {mensaje}")
+    while True:
+        for mensaje in consumidor:
+            print(f"DEBUG: Mensaje recibido: {mensaje.value.decode(FORMAT)}")
+            camposMensaje = re.findall('[^\[\]]+', mensaje.value.decode(FORMAT))
+            #print(camposMensaje)
+            if camposMensaje[0] == ("EC_Central->ALL"):
+                mapa.loadJson(camposMensaje[1])
+                mapa.loadActiveTaxis(camposMensaje[2])
+                mapa.print()
+            elif camposMensaje[0] == f"EC_Central->EC_DE_{ID}":
+                if camposMensaje[1] == "SERVICIO":
+                    
+                    clienteARecoger = camposMensaje[2].split("->")[0]
+                    idLocalizacion = camposMensaje[2].split("->")[1]
+                    cltX, cltY = obtenerPosicion(clienteARecoger, True)
+                    destX, destY = obtenerPosicion(idLocalizacion, False)
+            else:
+                # TODO: Informar mas que decir que error
+                pass
+                printInfo(f"Mensaje desconocido descartado: {mensaje}")
+        
+
+# ID del servicio a obtener id
+# cliente = True buscamos pos cliente
+# cliente = False buscamos pos localizacion
+        
+def obtenerPosicion(id, cliente):
+    x, y = None, None
+    global mapa
+    jsonMapa = json.loads(mapa.exportJson())
+
+    if (cliente):
+        for key, value in jsonMapa.items():
+            if key == f"cliente_{id}":
+                x, y = value.split(",")
+                break
+    else:
+        for key, value in jsonMapa.items():
+            if key == f"localizacion_{id}":
+                x, y = value.split(",")
+                break
+    
+    return x, y
+
+
+import time
 
 def mover(x, y):
+    global posX, posY
+
     if (x > 20) or (x < 0) or (y > 20) or (y < 0):
         print("ERROR: Movimiento demasiado grande")
+    elif (x == posX) and (y == posY):
+        pass
     else:
+        posX = x
+        posY = y
+
         print(f"INFO: Moviendo a dirección ({x},{y})")
         publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][MOVIMIENTO][{x},{y}]", TOPIC_TAXIS, BROKER_ADDR)
 
-def calcularMovimientos():
-    global posX, posY, destX, destY
+def calcularMovimientos(X, Y, destX, destY):
 
+    delta_x = int(destX) - int(posX)
+    delta_y = int(destY) - int(posY)
+
+    step_x = 1 if delta_x > 0 else -1 if delta_x < 0 else 0
+    step_y = 1 if delta_y > 0 else -1 if delta_y < 0 else 0
+
+    X = int(X) + step_x
+    Y = int(Y) + step_y
+
+    return X, Y
+
+def manejarMovimientos():
+    global posX, posY, destX, destY, cltX, cltY, clienteRecogido, clienteARecoger
+
+    estadoSensor = True
     while True:
         if estadoSensor:
-            if destX != None or destY != None:
-                if posX != destX or posY != destY:        
-                    delta_x = int(destX) - int(posX)
-                    delta_y = int(destY) - int(posY)
+            # Mover hacia el cliente
+            if not clienteRecogido and cltX is not None and cltY is not None:
+                while (int(posX) != int(cltX) or int(posY) != int(cltY)):  # Continua moviéndose hasta alcanzar el cliente
+                    print(f"DEBUG: Posición actual: {posX}, {posY} Y CLIENTE EN {cltX}, {cltY}")
+                    x, y = calcularMovimientos(posX, posY, cltX, cltY)
+                    mover(x, y)
+                    time.sleep(1)  # Esperar un segundo entre movimientos
+                clienteRecogido = True
+                printInfo("Cliente recogido")
+                publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_RECOGIDO][{clienteARecoger}]", TOPIC_TAXIS, BROKER_ADDR)
 
-                    step_x = 1 if delta_x > 0 else -1 if delta_x < 0 else 0
-                    step_y = 1 if delta_y > 0 else -1 if delta_y < 0 else 0
+            # Mover hacia el destino del cliente
+            elif clienteRecogido and destX is not None and destY is not None:  
+                while (int(posX) != int(destX) or int(posY) != int(destY)):
+                    print(f"DEBUG: Posición actual: {posX}, {posY} Y DESTINO EN {destX}, {destY}")
+                    x, y = calcularMovimientos(posX, posY, destX, destY)
+                    mover(x, y)
+                    time.sleep(1)  # Esperar un segundo entre movimientos
+                printInfo("Destino alcanzado")
+                publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_EN_DESTINO][{clienteARecoger}][{x},{y}]", TOPIC_TAXIS, BROKER_ADDR)
+                clienteRecogido = False
+                clienteARecoger = None
+                destX, destY, cltX, cltY = None, None, None, None
 
-                    print(f"Me muevo de {posX},{posY} a {destX},{destY} en dirección ({step_x},{step_y})")
-
-                    posX = int(posX) + step_x
-                    posY = int(posY) + step_y
-
-                    mover(posX, posY)
-
-            #print(datetime.now(), "INFO: Movimiento aleatorio", threading.get_ident())
-            #mover(1, 1)
-        time.sleep(1)
+        time.sleep(1)  # Control de la tasa del bucle principal
 
 
 def main():
     comprobarArgumentos(sys.argv)
     asignarConstantes(sys.argv)
-
-    threading.Thread(target=calcularMovimientos).start()
 
     hiloSocketSensores = threading.Thread(target=gestionarSocketSensores)
     hiloSocketSensores.start()
