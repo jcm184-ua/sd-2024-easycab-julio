@@ -41,9 +41,9 @@ def gestionarConexionTaxi():
                 time.sleep(1)
 
         except Exception as e:
-            print(f"WARNING: SOCKET CAIDO: {e}.")
+            printInfo(f"WARNING: SOCKET CAIDO: {e}.")
             time.sleep(3)
-            print(f"INFO: Reintentando conexión...")
+            printInfo(f"INFO: Reintentando conexión...")
 
 #TODO: PONER EL DE PEDRE
 def cambiar_estado():
@@ -53,12 +53,12 @@ def cambiar_estado():
         if opcion == "1":
             estado = not estado
             estado_str = "OK" if estado else "KO"
-            print(f"Estado cambiado a: {estado_str}")
+            printInfo(f"Estado cambiado a: {estado_str}")
         elif opcion == "2":
-            print("Saliendo...")
+            printInfo("Saliendo...")
             break
         else:
-            print("Opción inválida, intenta de nuevo.")
+            printInfo("Opción inválida, intenta de nuevo.")
         time.sleep(1)  # Pequeño retardo para evitar spam en el menú
 
 def main():

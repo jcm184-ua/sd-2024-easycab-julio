@@ -12,6 +12,12 @@ TOPIC_ERRORES = 'ERRORES'
 def printInfo(mensaje):
     print(datetime.now(), f"INFO: {mensaje}")
 
+def printWarning(mensaje):
+    print(datetime.now(), f"WARNING: {mensaje}")
+
+def printError(mensaje):
+    print(datetime.now(), f"ERROR: {mensaje}")
+
 def abrirSocketServidor(socket_addr):
     printInfo(f"Abriendo socket servidor en la dirección {socket_addr}.")
     socketAbierto = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
