@@ -4,6 +4,7 @@ import socket
 import threading
 from kafka import KafkaProducer, KafkaConsumer
 import time
+import os
 
 sys.path.append('../../shared')
 from EC_Shared import *
@@ -109,7 +110,7 @@ def gestionarSensor(conexion, direccion):
                 elif mensaje == "KO":
                     publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][ESTADO][KO]", TOPIC_TAXIS, BROKER_ADDR)
 
-def recibirMapa(socket):
+def recibirMapaLogin(socket):
     try:
         # PASO DE LA RESILIENCIA DE SI SE INTERRUMPE AQUI YA QUE ES EL LOGIN
         mensaje = recibirMensajeCliente(socket)
@@ -145,14 +146,15 @@ def gestionarConexionCentral():
                             printInfo("Autentificación correcta")
                             posX = camposMensaje[2].split(",")[0]
                             posY = camposMensaje[2].split(",")[1]
-                            recibirMapa(socket)
+                            recibirMapaLogin(socket)
                             hiloMovimientosAleatorios = threading.Thread(target=movimientosAleatorios)
                             #hiloMovimientosAleatorios.start()
                         except:
                             printError("ENGINE: Error al decodificar mensaje 1")
                     elif mensaje == f"[EC_Central->EC_DE_{ID}][NOT_AUTHORIZED]":
-                        printError("ENGINE: Autentificación incorrecta")
-                        exit()
+                        printError("ENGINE: Autentificación incorrecta. Finalizando ejecución.")
+                        os._exit(1)
+                        #exit()
                     else:
                         printError(f"ENGINE: MENSAJE DESCONOCIDO: {mensaje}")
         except Exception as e:

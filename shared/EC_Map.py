@@ -94,22 +94,28 @@ class Map:
         initX = x
         initY = y
         #TODO: Comprobar límites del mapa y "overflowear" si se sale
+
         self.diccionarioPosiciones[key] = f"{int(initX)},{int(initY)}"
         print(f"INFO: Movimiento realizado a {initX},{initY} para {key}")
 
+
     def getPosition(self, key):
-        try:
+        if key not in self.diccionarioPosiciones:
+            printError("No se ha encontrado la posición.")
+            return None
+        else:
             self.diccionarioPosiciones[key]
             return self.diccionarioPosiciones[key]
-        except:
-            print("ERROR: No se ha encontrado la posición.")
-            return None
 
     def activateTaxi(self, idTaxi):
         self.taxisActivos.append(f"taxi_{idTaxi}")
 
     def deactivateTaxi(self, idTaxi):
-        self.taxisActivos.remove(f"taxi_{idTaxi}")
+        #No deberia protegerlo aqui pero anyway
+        if f"taxi_{idTaxi}" in self.taxisActivos:
+            self.taxisActivos.remove(f"taxi_{idTaxi}")
+        else:
+            printWarning(f"Has intentado eliminar el taxi {idTaxi} que no estaba activo.")
 
 # Función en segundo plano para leer de Kafka
 def kafka_consumer_thread(topic, broker_addr, add_error_callback):
