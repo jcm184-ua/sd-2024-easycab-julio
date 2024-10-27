@@ -64,7 +64,6 @@ class Map:
     def draw_on_canvas(self, canvas):
         print("Dibujando mapa...")
         if canvas is not None:
-
             """ Dibujar el mapa en un Canvas de Tkinter """
             canvas.delete("all")  # Limpiar el canvas
             for i in range(SIZE):
@@ -74,32 +73,45 @@ class Map:
                     x2 = x1 + TILE_SIZE
                     y2 = y1 + TILE_SIZE
 
-                    # Dibuja el rectángulo para la celda
-                    canvas.create_rectangle(x1, y1, x2, y2, outline="black")
-
                     elementos = []  # Lista para almacenar elementos en la misma posición
+                    taxi_dibujado = False  # Indica si se ha dibujado un taxi
+                    backgroud_color = "white"
+                    # Verificar si hay localizaciones, taxis o clientes en la celda
                     for key, value in self.diccionarioPosiciones.items():
                         if value == f"{i+1},{j+1}":
                             if key.startswith('localizacion'):
-                                canvas.create_rectangle(x1, y1, x2, y2, fill="blue")
+                                backgroud_color = "blue"
                                 elementos.append(key[13:])  # Añadir nombre de la localización
-                            elif key.startswith('cliente'):
-                                canvas.create_rectangle(x1, y1, x2, y2, fill="yellow")
-                                elementos.append(key[8:])  # Añadir nombre del cliente
                             elif key.startswith('taxi'):
+                                taxi_dibujado = True  # Hay un taxi
                                 if key in self.taxisActivos:
-                                    canvas.create_rectangle(x1, y1, x2, y2, fill="green")  # Color para taxi activo
+                                    backgroud_color = "green"
                                 else:
-                                    canvas.create_rectangle(x1, y1, x2, y2, fill="red")  # Color para taxi no activo
+                                    backgroud_color = "red"
                                 elementos.append(key[5:])  # Añadir nombre del taxi
+                            elif key.startswith('cliente'):
+                                if not taxi_dibujado:  # Si no se ha dibujado un taxi
+                                    backgroud_color = "yellow"
+                                elementos.append(key[8:])  # Añadir nombre del cliente
+
+                    # Si hay un cliente pero no un taxi, se dibuja en amarillo
+                    if not taxi_dibujado and any(k.startswith('cliente') for k in self.diccionarioPosiciones.keys() if self.diccionarioPosiciones[k] == f"{i+1},{j+1}"):
+                        canvas.create_rectangle(x1, y1, x2, y2, fill="yellow")  # Dibuja cliente en amarillo
+                    
+                    canvas.create_rectangle(x1, y1, x2, y2, outline="black", fill=backgroud_color)
+
 
                     # Dibujar texto en la celda si hay elementos
                     if len(elementos) > 0:
                         # Elegir el color del texto basado en el tipo de elemento
                         text_color = "black"
                         canvas.create_text((x1 + x2) // 2, (y1 + y2) // 2, text=", ".join(elementos), fill=text_color)
+
             # Llamar a sí mismo después de 1000 ms (1 segundo)
             self.after(1000, lambda: self.draw_on_canvas(canvas))
+
+
+
 
 
     def clear(self):
@@ -205,12 +217,12 @@ def create_window(map_instance):
     client_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
     # Configurar el tamaño de las columnas de las tablas
-    taxi_table.column("ID", width=100)
-    taxi_table.column("Destino", width=150)
-    taxi_table.column("Estado", width=100)
-    client_table.column("ID", width=100)
-    client_table.column("Destino", width=150)
-    client_table.column("Estado", width=100)
+    taxi_table.column("ID", width=75)
+    taxi_table.column("Destino", width=75)
+    taxi_table.column("Estado", width=250)
+    client_table.column("ID", width=75)
+    client_table.column("Destino", width=75)
+    client_table.column("Estado", width=250)
 
     # Método para añadir errores al Text
     def addError(mensaje):
@@ -238,7 +250,9 @@ def create_window(map_instance):
     # Dibuja el mapa en el canvas
     threading.Thread(target=map_instance.draw_on_canvas, args=(canvas,), daemon=True).start()
 
-    #load_data_from_json("jsonPrueba.json", add_taxi, add_client, clear_taxi_table, clear_client_table)
+    load_data_from_json("jsonPrueba.json", add_taxi, add_client, clear_taxi_table, clear_client_table)
+    addError("ERROR: Taxi 2 ha caido.")
+    addError("INFO: Taxi 3 ha recogido a su cliente e.")
     # Iniciar el hilo para consumir mensajes de Kafka
     #topic = 'errores'
     #broker_addr = 'localhost:20000'  # Reemplazar con tu dirección del broker
@@ -278,9 +292,10 @@ def iniciarMapa():
     map_instance.diccionarioPosiciones.update({"taxi_2": "8,2"})
     map_instance.diccionarioPosiciones.update({"taxi_3": "17,8"})
     map_instance.diccionarioPosiciones.update({"cliente_d": "8,9"})
-    map_instance.diccionarioPosiciones.update({"cliente_e": "7,8"})
+    map_instance.diccionarioPosiciones.update({"cliente_e": "17,8"})
     map_instance.diccionarioPosiciones.update({"localizacion_A": "3,5"})
-    map_instance.diccionarioPosiciones.update({"localizacion_C": "10,4"})
+    map_instance.diccionarioPosiciones.update({"localizacion_B": "10,18"})
+    map_instance.diccionarioPosiciones.update({"localizacion_C": "14,6"})
 
     map_instance.taxisActivos.append("taxi_1")
     map_instance.taxisActivos.append("taxi_3")
