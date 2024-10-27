@@ -226,7 +226,7 @@ def obtenerPosicion(id, cliente):
 import time
 
 def mover(x, y):
-    global posX, posY
+    global posX, posY, clienteRecogido, clienteARecoger
 
     if (x > 20) or (x < 0) or (y > 20) or (y < 0):
         print("ERROR: Movimiento demasiado grande")
@@ -237,7 +237,7 @@ def mover(x, y):
         posY = y
 
         print(f"INFO: Moviendo a dirección ({x},{y})")
-        publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][MOVIMIENTO][{x},{y}]", TOPIC_TAXIS, BROKER_ADDR)
+        publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][MOVIMIENTO][{x},{y}][{clienteARecoger}]", TOPIC_TAXIS, BROKER_ADDR)
 
 def calcularMovimientos(X, Y, destX, destY):
 

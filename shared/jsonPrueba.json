@@ -1,0 +1,10 @@
+{
+    "taxis": [
+        {"id": "1", "destino": "a", "estado": "Libre"},
+        {"id": "2", "destino": "b", "estado": "Ocupado"}
+    ],
+    "clientes": [
+        {"id": "a", "destino": "E", "estado": "Esperando"},
+        {"id": "b", "destino": "F", "estado": "Asignado"}
+    ]
+}
