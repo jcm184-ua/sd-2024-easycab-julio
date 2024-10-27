@@ -11,6 +11,7 @@ from kafka import KafkaConsumer, KafkaProducer
 sys.path.append('../../shared')
 from EC_Shared import *
 from EC_Map import Map
+from EC_Map import iniciarMapa
 
 DATABASE = './resources/database.db'
 
@@ -228,6 +229,7 @@ def gestionarBrokerTaxis():
 
                 mapa.move(f"taxi_{idTaxi}", posX, posY)
                 mapa.print()
+                mapa.draw_on_canvas()
                 publicarMensajeEnTopic(f"[EC_Central->ALL][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]", TOPIC_TAXIS, BROKER_ADDR)
             elif camposMensaje[1] == "SERVICIO":
                 if camposMensaje[2] == "CLIENTE_RECOGIDO":
@@ -361,6 +363,10 @@ def main():
 
     hiloLoginTaxis = threading.Thread(target=gestionarLoginTaxis)
     hiloLoginTaxis.start()
+
+    hiloMapa = threading.Thread(target=iniciarMapa)
+    hiloMapa.start()
+
 
 if __name__ == "__main__":
     main()

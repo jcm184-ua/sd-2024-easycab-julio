@@ -4,6 +4,7 @@ import json
 import threading
 import re
 from EC_Shared import *
+import time
 from kafka import KafkaProducer, KafkaConsumer  # Importar KafkaProducer y KafkaConsumer
 
 SIZE = 20
@@ -27,15 +28,16 @@ class Map:
     def print(self):
         """ Imprimir el mapa en consola """
         print("MAPA:")
-        for i in range(1, SIZE+1):
-            print("-" * int(((0.5+SIZE) * 4 - 1)))
+        for i in range(1, SIZE + 1):
+            print("-" * int(((0.5 + SIZE) * 4 - 1)))
             print("|", end="")
-            for j in range(1, SIZE+1):
+            for j in range(1, SIZE + 1):
+                elementos = []  # Lista para almacenar elementos en la misma posición
                 for key, value in self.diccionarioPosiciones.items():
                     if value == f"{i},{j}":
                         if key.startswith('taxi'):
                             if key in self.taxisActivos:
-                                print(f"{COLORES_ANSII.BACKGROUD_GREEN}{COLORES_ANSII.BLACK}{key[5:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}", end="")
+                                print(f"{COLORES_ANSII.BACKGROUD_GREEN}{COLORES_ANSII.BLACK}{key[5:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}")
                             else:
                                 print(f"{COLORES_ANSII.BACKGROUD_RED}{COLORES_ANSII.BLACK}{key[5:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}", end="")
                         else:
@@ -56,34 +58,44 @@ class Map:
         print("-" * int(((0.5+SIZE) * 4 - 1)))
 
     def draw_on_canvas(self, canvas):
-        """ Dibujar el mapa en un Canvas de Tkinter """
-        canvas.delete("all")  # Limpiar el canvas
-        for i in range(SIZE):
-            for j in range(SIZE):
-                x1 = j * TILE_SIZE
-                y1 = i * TILE_SIZE
-                x2 = x1 + TILE_SIZE
-                y2 = y1 + TILE_SIZE
+        print("Dibujando mapa...")
+        if canvas is not None:
 
-                # Dibuja el rectángulo para la celda
-                canvas.create_rectangle(x1, y1, x2, y2, outline="black")
+            """ Dibujar el mapa en un Canvas de Tkinter """
+            canvas.delete("all")  # Limpiar el canvas
+            for i in range(SIZE):
+                for j in range(SIZE):
+                    x1 = j * TILE_SIZE
+                    y1 = i * TILE_SIZE
+                    x2 = x1 + TILE_SIZE
+                    y2 = y1 + TILE_SIZE
 
-                # Comprobar si hay algún elemento en la posición actual
-                for key, value in self.diccionarioPosiciones.items():
-                    if value == f"{i+1},{j+1}":
-                        if key.startswith('taxi'):
-                            if key in self.taxisActivos:
-                                canvas.create_rectangle(x1, y1, x2, y2, fill="green")  # Color para taxi activo
-                            else:
-                                canvas.create_rectangle(x1, y1, x2, y2, fill="red")  # Color para taxi no activo
-                            canvas.create_text((x1 + x2) // 2, (y1 + y2) // 2, text=key[5:], fill="white")
-                        elif key.startswith('cliente'):
-                            canvas.create_rectangle(x1, y1, x2, y2, fill="yellow")
-                            canvas.create_text((x1 + x2) // 2, (y1 + y2) // 2, text=key[8:], fill="black")
-                        elif key.startswith('localizacion'):
-                            canvas.create_rectangle(x1, y1, x2, y2, fill="blue")
-                            canvas.create_text((x1 + x2) // 2, (y1 + y2) // 2, text=key[13:], fill="white")
-                        break
+                    # Dibuja el rectángulo para la celda
+                    canvas.create_rectangle(x1, y1, x2, y2, outline="black")
+
+                    elementos = []  # Lista para almacenar elementos en la misma posición
+                    for key, value in self.diccionarioPosiciones.items():
+                        if value == f"{i+1},{j+1}":
+                            if key.startswith('localizacion'):
+                                canvas.create_rectangle(x1, y1, x2, y2, fill="blue")
+                                elementos.append(key[13:])  # Añadir nombre de la localización
+                            elif key.startswith('cliente'):
+                                canvas.create_rectangle(x1, y1, x2, y2, fill="yellow")
+                                elementos.append(key[8:])  # Añadir nombre del cliente
+                            elif key.startswith('taxi'):
+                                if key in self.taxisActivos:
+                                    canvas.create_rectangle(x1, y1, x2, y2, fill="green")  # Color para taxi activo
+                                else:
+                                    canvas.create_rectangle(x1, y1, x2, y2, fill="red")  # Color para taxi no activo
+                                elementos.append(key[5:])  # Añadir nombre del taxi
+
+                    # Dibujar texto en la celda si hay elementos
+                    if len(elementos) > 0:
+                        # Elegir el color del texto basado en el tipo de elemento
+                        text_color = "black"
+                        canvas.create_text((x1 + x2) // 2, (y1 + y2) // 2, text=", ".join(elementos), fill=text_color)
+            # Llamar a sí mismo después de 1000 ms (1 segundo)
+            #self.after(1000, lambda: self.draw_on_canvas(canvas))
 
     def clear(self):
         self.diccionarioPosiciones = {}
@@ -234,13 +246,13 @@ def create_window(map_instance):
             client_table.delete(row)
 
     # Dibuja el mapa en el canvas
-    map_instance.draw_on_canvas(canvas)
+    threading.Thread(target=map_instance.draw_on_canvas, args=(canvas,), daemon=True).start()
 
-    load_data_from_json("jsonPrueba.json", add_taxi, add_client, clear_taxi_table, clear_client_table)
+    #load_data_from_json("jsonPrueba.json", add_taxi, add_client, clear_taxi_table, clear_client_table)
     # Iniciar el hilo para consumir mensajes de Kafka
-    topic = 'errores'
-    broker_addr = 'localhost:20000'  # Reemplazar con tu dirección del broker
-    threading.Thread(target=consumidorErrores, args=(topic, broker_addr, addError), daemon=True).start()
+    #topic = 'errores'
+    #broker_addr = 'localhost:20000'  # Reemplazar con tu dirección del broker
+    #threading.Thread(target=consumidorErrores, args=(topic, broker_addr, addError), daemon=True).start()
 
     # Ejecutar el loop de Tkinter para mantener la ventana abierta
     root.mainloop()
@@ -265,20 +277,20 @@ def load_data_from_json(filename, add_taxi, add_client, clear_taxi_table, clear_
 
 
 # Ejemplo de uso
-def main():
+def iniciarMapa():
     map_instance = Map()
 
     # Imprimir el mapa inicial por consola
     map_instance.print()
 
     # Actualizar el mapa con taxis, clientes y localizaciones
-    map_instance.diccionarioPosiciones.update({"taxi_1": "2,3"})
+    map_instance.diccionarioPosiciones.update({"taxi_1": "1,2"})
     map_instance.diccionarioPosiciones.update({"taxi_2": "8,2"})
-    map_instance.diccionarioPosiciones.update({"taxi_3": "10,4"})
-    map_instance.diccionarioPosiciones.update({"cliente_d": "3,5"})
+    map_instance.diccionarioPosiciones.update({"taxi_3": "17,8"})
+    map_instance.diccionarioPosiciones.update({"cliente_d": "8,9"})
     map_instance.diccionarioPosiciones.update({"cliente_e": "7,8"})
-    map_instance.diccionarioPosiciones.update({"localizacion_A": "9,15"})
-    map_instance.diccionarioPosiciones.update({"localizacion_C": "14,7"})
+    map_instance.diccionarioPosiciones.update({"localizacion_A": "3,5"})
+    map_instance.diccionarioPosiciones.update({"localizacion_C": "10,4"})
 
     map_instance.taxisActivos.append("taxi_1")
     map_instance.taxisActivos.append("taxi_3")
@@ -304,4 +316,4 @@ def main():
     create_window(map_instance)
 
 if __name__ == "__main__":
-    main()
+    iniciarMapa()
