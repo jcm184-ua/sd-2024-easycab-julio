@@ -7,7 +7,7 @@ sys.path.append('../../shared')
 from EC_Shared import *
 
 # Variable global para el estado del sensor (True = OK, False = KO)
-estado = True
+estadoSensor = True
 
 TAXI_IP = None
 TAXI_PORT = None
@@ -35,9 +35,9 @@ def gestionarConexionTaxi():
         try:
             socket = abrirSocketCliente(TAXI_ADDR)
             while True:
-                # MEJORAR MENSAJE [EC_Sensor->EC_DE_?][OK]
-                printInfo(f"Enviando estado del sensor: {estadoSensor}")
-                enviarMensajeCliente(socket, estadoSensor)
+                mensaje = "OK" if estadoSensor else "KO"
+                enviarMensajeCliente(socket, mensaje)
+                enviarMensajeCliente(socket, f"[EC_Sensor->EC_DE_?][{mensaje}]")
                 time.sleep(1)
 
         except Exception as e:

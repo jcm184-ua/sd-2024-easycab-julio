@@ -101,19 +101,22 @@ def gestionarSensor(conexion, direccion):
             modificarSensoresConectados(-1)
             break
         else:
-            if mensaje == "OK" and estadoSensor == True:
-                pass
-            elif mensaje == "KO" and estadoSensor == False:
-                pass
-            elif mensaje != "OK" and mensaje != "KO":
-                printError(f"SENSOR: MENSAJE DESCONOCIDO: {mensaje}")
-            else:
-                printInfo("Cambiando estado del sensor")
-                estadoSensor = not estadoSensor
-                if mensaje == "OK":
-                    publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][ESTADO][OK]", TOPIC_TAXIS, BROKER_ADDR)
-                elif mensaje == "KO":
-                    publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][ESTADO][KO]", TOPIC_TAXIS, BROKER_ADDR)
+            #[EC_Sensor->EC_DE_?][OK]
+            camposMensaje = re.findall('[^\[\]]+', mensaje)
+            if camposMensaje[0] == "EC_Sensor->EC_DE_?":
+                if camposMensaje[1] == "OK" and estadoSensor == True:
+                    pass
+                elif camposMensaje[1] == "KO" and estadoSensor == False:
+                    pass
+                elif camposMensaje[1] != "OK" and camposMensaje[1] != "KO":
+                    printError(f"SENSOR: MENSAJE DESCONOCIDO: {mensaje}")
+                else:
+                    printInfo("Cambiando estado del sensor")
+                    estadoSensor = not estadoSensor
+                    if camposMensaje[1] == "OK":
+                        publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][ESTADO][OK]", TOPIC_TAXIS, BROKER_ADDR)
+                    elif camposMensaje[1] == "KO":
+                        publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][ESTADO][KO]", TOPIC_TAXIS, BROKER_ADDR)
 
 def recibirMapaLogin(socket):
     try:
