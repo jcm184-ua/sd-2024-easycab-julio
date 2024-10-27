@@ -10,6 +10,7 @@ from kafka import KafkaConsumer, KafkaProducer
 sys.path.append('../../shared')
 from EC_Shared import *
 from EC_Map import Map
+from EC_Map import iniciarMapa
 
 HOST = "" # Simbólico, nos permite escuchar en todas las interfaces de red
 LISTEN_PORT = None
@@ -164,6 +165,7 @@ def gestionarBrokerTaxis():
                     mapa.move(f"cliente_{camposMensaje[3]}", posX, posY)
                 mapa.move(f"taxi_{idTaxi}", posX, posY)
                 mapa.print()
+                mapa.draw_on_canvas()
                 publicarMensajeEnTopic(f"[EC_Central->ALL][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]", TOPIC_TAXIS, BROKER_ADDR)
             elif camposMensaje[1] == "SERVICIO":
                 if camposMensaje[2] == "CLIENTE_RECOGIDO":
@@ -285,6 +287,10 @@ def main():
     # Autentificaciones y saber si taxi cae
     socketEscucha = abrirSocketServidor(THIS_ADDR)
     socketEscucha.listen()
+
+    hiloMapa = threading.Thread(target=iniciarMapa)
+    hiloMapa.start()
+
     while True:
         #printInfo("acabo de iterar")
         conexion, direccion = socketEscucha.accept()
