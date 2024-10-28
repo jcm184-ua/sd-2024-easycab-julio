@@ -41,9 +41,9 @@ def gestionarConexionTaxi():
                 time.sleep(1)
                 printMenu()
         except BrokenPipeError as error:
-            printWarning("Se ha perdido la conexión con el EC_DE.")
+            printWarning("Se ha perdido la conexión con EC_DE.")
         except ConnectionRefusedError as error:
-            printWarning("No se ha podido conectar con el EC_DE.")
+            printWarning("No se ha podido conectar con EC_DE.")
         except ConnectionResetError as error:
             printError("Algo ha ocurrido en EC_DE.")
         finally:
