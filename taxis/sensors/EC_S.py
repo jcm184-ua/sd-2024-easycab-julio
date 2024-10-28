@@ -6,16 +6,16 @@ import time
 sys.path.append('../../shared')
 from EC_Shared import *
 
-# Variable global para el estado del sensor (True = OK, False = KO)
-estadoSensor = True
-
 TAXI_IP = None
 TAXI_PORT = None
 TAXI_ADDR = None
 
+# Variable global para el estado del sensor (True = OK, False = KO)
+estadoSensor = True
+
 def comprobarArgumentos(argumentos):
     if len(argumentos) != 3:
-        printInfo("ERROR LOS ARGUMENTOS. Necesito estos argumentos: <TAXI_IP> <TAXI_PORT>")
+        printError("Necesito estos argumentos: <TAXI_IP> <TAXI_PORT>")
         exit()
     printInfo(f"Número de argumentos correcto.")
 
@@ -39,22 +39,29 @@ def gestionarConexionTaxi():
                 enviarMensajeCliente(socket, mensaje)
                 enviarMensajeCliente(socket, f"[EC_Sensor->EC_DE_?][{mensaje}]")
                 time.sleep(1)
+                printMenu()
 
-        except Exception as e:
-            printInfo(f"WARNING: SOCKET CAIDO: {e}.")
+        except BrokenPipeError as error:
+            printWarning("Se ha perdido la conexión con el EC_DE.")
+        except ConnectionRefusedError as error:
+            printWarning("No se ha podido conectar con el EC_DE.")
+        finally:
             time.sleep(3)
-            printInfo(f"INFO: Reintentando conexión...")
+            printInfo(f"Reintentando conexión...")
+            printMenu()
 
-#TODO: PONER EL DE PEDRE
-def cambiar_estado():
+def printMenu():
+    if estadoSensor:
+        print("\nPresione [Enter] para generar una incidencia...\n")
+    else:
+        print("\nPresione [Enter] para finalizar la incidencia...\n")
+
+def gestionarCambioEstado():
     global estadoSensor
     while True:
-        if estadoSensor == "OK":
-            input("Presiona Enter para generar una incidencia (KO)...\n")
-            estadoSensor = "KO"
-        else:
-            input("Presiona Enter para arreglar una incidencia (KO)...\n")
-            estadoSensor = "OK"
+        input("")
+        #printDebug("Detectada pulsacion")
+        estadoSensor = not estadoSensor
 
 def main():
     comprobarArgumentos(sys.argv)
@@ -63,7 +70,8 @@ def main():
     hilo_socket = threading.Thread(target=gestionarConexionTaxi)
     hilo_socket.start()
 
-    cambiar_estado()
+    hilo_estado = threading.Thread(target=gestionarCambioEstado)
+    hilo_estado.start()
 
 if __name__ == "__main__":
     main()
