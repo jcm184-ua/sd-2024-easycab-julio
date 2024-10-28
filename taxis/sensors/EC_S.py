@@ -40,11 +40,12 @@ def gestionarConexionTaxi():
                 enviarMensajeCliente(socket, f"[EC_Sensor->EC_DE_?][{mensaje}]")
                 time.sleep(1)
                 printMenu()
-
         except BrokenPipeError as error:
             printWarning("Se ha perdido la conexión con el EC_DE.")
         except ConnectionRefusedError as error:
             printWarning("No se ha podido conectar con el EC_DE.")
+        except ConnectionResetError as error:
+            printError("Algo ha ocurrido en EC_DE.")
         finally:
             time.sleep(3)
             printInfo(f"Reintentando conexión...")
