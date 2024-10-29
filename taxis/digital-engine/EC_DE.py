@@ -26,7 +26,7 @@ ID = None
 
 sensoresConectados = 0
 sensoresOk = 0
-estado = False
+estadoSensores = False
 mapa = Map()
 
 posX = None
@@ -68,17 +68,17 @@ def asignarConstantes(argumentos):
     printInfo("Constantes asignadas.")
 
 def gestionarEstado():
-    global estado
+    global estadoSensores
 
     while True:
-        if estado == True and (sensoresOk != sensoresConectados or sensoresConectados < 1):
-            estado = False
-            publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][ESTADO][KO]", TOPIC_TAXIS, BROKER_ADDR)
-        elif estado == False and sensoresConectados > 0 and sensoresOk == sensoresConectados:
-            estado = True
-            publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][ESTADO][OK]", TOPIC_TAXIS, BROKER_ADDR)
+        if estadoSensores == True and (sensoresOk != sensoresConectados or sensoresConectados < 1):
+            estadoSensores = False
+            publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SENSORES][KO]", TOPIC_TAXIS, BROKER_ADDR)
+        elif estadoSensores == False and sensoresConectados > 0 and sensoresOk == sensoresConectados:
+            estadoSensores = True
+            publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SENSORES][OK]", TOPIC_TAXIS, BROKER_ADDR)
         #printDebug("Iteración de gestionarEstado()")
-        #printDebug(f"estado = {estado}, sensoresConectados = {sensoresConectados}, sensoresOk = {sensoresOk}")
+        #printDebug(f"estadoSensores = {estadoSensores}, sensoresConectados = {sensoresConectados}, sensoresOk = {sensoresOk}")
         time.sleep(0.2)
 
 def gestionarSocketSensores():
@@ -133,61 +133,75 @@ def gestionarSensor(conexion, direccion):
 
 def recibirMapaLogin(socket):
     try:
-        # PASO DE LA RESILIENCIA DE SI SE INTERRUMPE AQUI YA QUE ES EL LOGIN
         mensaje = recibirMensajeClienteSilent(socket)
         camposMensaje = re.findall('[^\[\]]+', mensaje)
         printInfo("Mapa recibido:")
         mapa.loadJson(camposMensaje[1])
         mapa.loadActiveTaxis(camposMensaje[2])
         mapa.print()
+        return True
     except Exception as e:
         printError(f"Excepción {type(e)} al recibir el mapa: {e}.")
+        return False
 
 def gestionarConexionCentral():
-    global posX, posY, destX, destY
+    global posX, posY, cltX, cltY, destX, destY, clienteARecoger
 
     while True:
         try:
             socket = abrirSocketCliente(CENTRAL_ADDR)
             printInfo("Intentando autenticar en central.")
-            if estado:
-                enviarMensajeCliente(socket, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST][OK][{posX},{posY}]")
+            if estadoSensores:
+                enviarMensajeCliente(socket, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST][OK][{posX},{posY}][{clienteARecoger}][{clienteRecogido}]")
             else:
-                enviarMensajeCliente(socket, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST][KO][{posX},{posY}]")
-            time.sleep(1)
+                enviarMensajeCliente(socket, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST][KO][{posX},{posY}][{clienteARecoger}][{clienteRecogido}]")
+            
+            #TODO: ¿Esto es necesario?
+            time.sleep(0.2)
+
             while True:
                 mensaje = recibirMensajeCliente(socket)
-                camposMensaje = re.findall('[^\[\]]+', mensaje)
-                #print(camposMensaje)
                 if mensaje == None:
-                    printInfo(f"Mensaje vacio. ¿Conexión con el servidor perdida?")
+                    printWarning(f"Se ha perdido la conexión con EC_Central.")
                     break
                 else:
+                    camposMensaje = re.findall('[^\[\]]+', mensaje)
                     if mensaje.startswith(f"[EC_Central->EC_DE_{ID}][AUTHORIZED]"):
-                        try:
-                            printInfo("Autentificación correcta.")
-                            posX = camposMensaje[2].split(",")[0]
-                            posY = camposMensaje[2].split(",")[1]
-                            recibirMapaLogin(socket)
-                            hiloMovimientos= threading.Thread(target=manejarMovimientos)
-                            hiloMovimientos.start()
 
-                        except:
-                            printError("ENGINE: Error al decodificar mensaje 1")
+                        printInfo("Autentificación correcta.")
+                        posX = camposMensaje[2].split(",")[0]
+                        posY = camposMensaje[2].split(",")[1]
 
+                        if not recibirMapaLogin(socket):
+                            break # Se ha perdido conexión con el sensor durante el envío del mapas
+                        hiloMovimientos = threading.Thread(target=manejarMovimientos)
+                        hiloMovimientos.start()
+                        
+                        if camposMensaje[3] != "None":
+                            clienteARecoger = camposMensaje[3]
+                            cltX, cltY = obtenerPosicion(camposMensaje[3], True)
 
-
+                        if camposMensaje[4] != "None":
+                            destX, destY = obtenerPosicion(camposMensaje[4], False)
+                        
                     elif mensaje == f"[EC_Central->EC_DE_{ID}][NOT_AUTHORIZED]":
                         printError("ENGINE: Autentificación incorrecta. Finalizando ejecución.")
                         os._exit(1)
                         #exit()
                     else:
                         printError(f"ENGINE: MENSAJE DESCONOCIDO: {mensaje}")
+        except BrokenPipeError as error:
+            printWarning("Se ha perdido la conexión con EC_Central.")
+        except ConnectionRefusedError as error:
+            printWarning("No se ha podido conectar con EC_Central.")
+        except ConnectionResetError as error:
+            printError("Algo ha ocurrido en EC_Central.")
         except Exception as e:
-            printWarning(f"SOCKET CAIDO: {e}.")
+            printWarning(f"Excepción {type(e)} inesperada en gestionarConexionCentral(): {e}.")
+        finally:
             time.sleep(3)
             printInfo(f"Reintentando conexión...")
-
+            
         #Una vez autorizados y con posición, esperar a que se nos indique un servicio
 
 def gestionarBroker():
@@ -197,7 +211,7 @@ def gestionarBroker():
     consumidor = conectarBrokerConsumidor(BROKER_ADDR, TOPIC_TAXIS)
     while True:
         for mensaje in consumidor:
-            #printDebug(f"Mensaje recibido: {mensaje.value.decode(FORMAT)}")
+            printDebug(f"Mensaje recibido: {mensaje.value.decode(FORMAT)}")
             camposMensaje = re.findall('[^\[\]]+', mensaje.value.decode(FORMAT))
             #print(camposMensaje)
             if camposMensaje[0] == (f"EC_DE_{ID}->EC_Central"):
@@ -208,7 +222,6 @@ def gestionarBroker():
                 mapa.print()
             elif camposMensaje[0] == f"EC_Central->EC_DE_{ID}":
                 if camposMensaje[1] == "SERVICIO":
-
                     clienteARecoger = camposMensaje[2].split("->")[0]
                     idLocalizacion = camposMensaje[2].split("->")[1]
                     cltX, cltY = obtenerPosicion(clienteARecoger, True)
@@ -225,21 +238,14 @@ def gestionarBroker():
 
 def obtenerPosicion(id, cliente):
     x, y = None, None
-    global mapa
-    jsonMapa = json.loads(mapa.exportJson())
-
     if (cliente):
-        for key, value in jsonMapa.items():
-            if key == f"cliente_{id}":
-                x, y = value.split(",")
-                break
+        posicion = mapa.getPosition(f"cliente_{id}")
     else:
-        for key, value in jsonMapa.items():
-            if key == f"localizacion_{id}":
-                x, y = value.split(",")
-                break
+        posicion = mapa.getPosition(f"localizacion_{id}") 
 
-    return x, y
+    if posicion is not None:
+        x, y = posicion.split(",")
+        return x, y
 
 
 import time
@@ -248,14 +254,14 @@ def mover(x, y):
     global posX, posY, clienteRecogido, clienteARecoger
 
     if (x > 20) or (x < 0) or (y > 20) or (y < 0):
-        print("ERROR: Movimiento demasiado grande")
+        printError("Movimiento demasiado grande")
     elif (x == posX) and (y == posY):
         pass
     else:
         posX = x
         posY = y
 
-        print(f"INFO: Moviendo a dirección ({x},{y})")
+        printInfo(f"Moviendo a dirección ({x},{y})")
         publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][MOVIMIENTO][{x},{y}][{clienteARecoger}]", TOPIC_TAXIS, BROKER_ADDR)
 
 def calcularMovimientos(X, Y, destX, destY):
@@ -274,34 +280,38 @@ def calcularMovimientos(X, Y, destX, destY):
 def manejarMovimientos():
     global posX, posY, destX, destY, cltX, cltY, clienteRecogido, clienteARecoger
 
-    estadoSensor = True
-    while True:
-        if estadoSensor:
-            # Mover hacia el cliente
-            if not clienteRecogido and cltX is not None and cltY is not None:
-                while (int(posX) != int(cltX) or int(posY) != int(cltY)):  # Continua moviéndose hasta alcanzar el cliente
-                    print(f"DEBUG: Posición actual: {posX}, {posY} Y CLIENTE EN {cltX}, {cltY}")
-                    x, y = calcularMovimientos(posX, posY, cltX, cltY)
-                    mover(x, y)
-                    time.sleep(1)  # Esperar un segundo entre movimientos
-                clienteRecogido = True
-                printInfo("Cliente recogido")
-                publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_RECOGIDO][{clienteARecoger}]", TOPIC_TAXIS, BROKER_ADDR)
+    try:
+        while True:
+            if estadoSensores:
+                #printDebug("Iteración manejar movimientos.")
+                #printDebug(f"{clienteRecogido}, {cltX}, {cltY}")
+                # Mover hacia el cliente
+                if not clienteRecogido and cltX is not None and cltY is not None:
+                    while (int(posX) != int(cltX) or int(posY) != int(cltY)):  # Continua moviéndose hasta alcanzar el cliente
+                        #printDebug(f"Posición actual: {posX}, {posY} Y CLIENTE EN {cltX}, {cltY}")
+                        x, y = calcularMovimientos(posX, posY, cltX, cltY)
+                        mover(x, y)
+                        time.sleep(1)  # Esperar un segundo entre movimientos
+                    clienteRecogido = True
+                    printInfo("Cliente recogido")
+                    publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_RECOGIDO][{clienteARecoger}]", TOPIC_TAXIS, BROKER_ADDR)
 
-            # Mover hacia el destino del cliente
-            elif clienteRecogido and destX is not None and destY is not None:
-                while (int(posX) != int(destX) or int(posY) != int(destY)):
-                    print(f"DEBUG: Posición actual: {posX}, {posY} Y DESTINO EN {destX}, {destY}")
-                    x, y = calcularMovimientos(posX, posY, destX, destY)
-                    mover(x, y)
-                    time.sleep(1)  # Esperar un segundo entre movimientos
-                printInfo("Destino alcanzado")
-                publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_EN_DESTINO][{clienteARecoger}][{x},{y}]", TOPIC_TAXIS, BROKER_ADDR)
-                clienteRecogido = False
-                clienteARecoger = None
-                destX, destY, cltX, cltY = None, None, None, None
+                # Mover hacia el destino del cliente
+                elif clienteRecogido and destX is not None and destY is not None:
+                    while (int(posX) != int(destX) or int(posY) != int(destY)):
+                        #printDebug(f"Posición actual: {posX}, {posY} Y DESTINO EN {destX}, {destY}")
+                        x, y = calcularMovimientos(posX, posY, destX, destY)
+                        mover(x, y)
+                        time.sleep(1)  # Esperar un segundo entre movimientos
+                    printInfo("Destino alcanzado")
+                    publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_EN_DESTINO][{clienteARecoger}][{x},{y}]", TOPIC_TAXIS, BROKER_ADDR)
+                    clienteRecogido = False
+                    clienteARecoger = None
+                    destX, destY, cltX, cltY = None, None, None, None
 
-        time.sleep(1)  # Control de la tasa del bucle principal
+            time.sleep(1)  # Control de la tasa del bucle principal
+    except Exception as e:
+        printError(f"Excepción {type(e)} inesperada en manejarMovimientos(): {e}")
 
 
 def main():
