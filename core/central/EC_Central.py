@@ -78,7 +78,8 @@ def leerBBDD():
         mapa.setPosition(f"cliente_{cliente[0]}", int(cliente[1].split(",")[0]), int(cliente[1].split(",")[1]))
         #printInfo(f"Cargado cliente {cliente[0]} con posición {cliente[1]}.")
     printInfo(f"Ubiación clientes cargada desde BBDD.")
-
+    
+    dbToJSON()
     conexionBBDD.close()
 
 def ejecutarSentenciaBBDD(sentencia):
@@ -90,10 +91,60 @@ def ejecutarSentenciaBBDD(sentencia):
         resultado = cursor.fetchall()
         conexionBBDD.commit()
         conexionBBDD.close()
+        dbToJSON()
         return resultado
     except Exception as a:
         printError(a)
         return None
+    
+def dbToJSON():
+    # Conexión a la base de datos SQLite
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+
+    try:
+        # Consultar datos de la tabla de taxis
+        cursor.execute("SELECT id, estado, sensores, posicion, cliente, destino FROM taxis")
+        taxis = [
+            {
+                "id": row[0],
+                "estado": row[1],
+                "sensores": row[2],
+                "posicion": row[3],
+                "cliente": row[4],
+                "destino": row[5]
+            }
+            for row in cursor.fetchall()
+        ]
+
+        # Consultar datos de la tabla de clientes
+        cursor.execute("SELECT id, posicion FROM clientes")
+        clientes = [
+            {
+                "id": row[0],
+                "posicion": row[1]
+            }
+            for row in cursor.fetchall()
+        ]
+
+        # Crear el objeto JSON
+        data = {
+            "taxis": taxis,
+            "clientes": clientes
+        }
+
+        # Convertir el objeto data a una cadena JSON con formato
+        json_data = json.dumps(data, indent=4)
+        
+        enviarJSONEnTopic(json_data, TOPIC_ESTADOS_MAPA, BROKER_ADDR)
+
+    except Exception as e:
+        print(f"Error al convertir la base de datos a JSON: {e}")
+        return None
+
+    finally:
+        # Cerrar la conexión a la base de datos
+        conn.close()
 
 def comprobarTaxi(idTaxi):
     try:
@@ -331,44 +382,6 @@ def gestionarLoginTaxis():
         hiloTaxi = threading.Thread(target=gestionarTaxi, args=(conexion, direccion))
         hiloTaxi.start()
 
-def enviarEstados(TOPIC_ESTADOS_MAPA, broker_addr):
-    try:
-        # Conectar a la base de datos SQLite
-        conexion = sqlite3.connect('database.db')
-        cursor = conexion.cursor()
-
-        # Consultar los datos de la tabla 'taxis'
-        cursor.execute("SELECT * FROM taxis")
-        taxis = cursor.fetchall()
-
-        # Consultar los datos de la tabla 'clientes'
-        cursor.execute("SELECT * FROM clientes")
-        clientes = cursor.fetchall()
-
-        # Convertir los datos a JSON
-        data = {
-            "taxis": [
-                {"id": taxi[0], "estado": taxi[1], "sensores": taxi[2], "posicion": taxi[3], "cliente": taxi[4], "destino": taxi[5]}
-                for taxi in taxis
-            ],
-            "clientes": [
-                {"id": cliente[0], "posicion": cliente[1]}
-                for cliente in clientes
-            ]
-        }
-
-        # Cerrar la conexión con la base de datos
-        conexion.close()
-
-        # Convertir el objeto data a una cadena JSON
-        json_data = json.dumps(data)
-
-        # Enviar el JSON a Kafka
-        enviarJSONEnTopic(json_data, TOPIC_ESTADOS_MAPA, broker_addr)
-
-    except Exception as e:
-        print(f"Error al enviar la base de datos a Kafka: {e}")
-
 def main():
     comprobarArgumentos(sys.argv)
     asignarConstantes(sys.argv)
@@ -389,8 +402,6 @@ def main():
 
     hiloMapa = threading.Thread(target=iniciarMapa, args=(mapa, BROKER_ADDR,))
     hiloMapa.start()
-
-    enviarEstados(TOPIC_ESTADOS_MAPA, BROKER_ADDR)
 
 
 if __name__ == "__main__":
