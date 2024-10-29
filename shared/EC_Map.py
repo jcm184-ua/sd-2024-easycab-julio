@@ -77,12 +77,12 @@ class Map:
                     for key, value in self.diccionarioPosiciones.items():
                         if value == f"{i+1},{j+1}":
                             if key.startswith('localizacion'):
-                                backgroud_color = "blue"
+                                backgroud_color = "dodgerBlue"
                                 elementos.append(key[13:])  # Añadir nombre de la localización
                             elif key.startswith('taxi'):
                                 taxi_dibujado = True  # Hay un taxi
                                 if key in self.taxisActivos:
-                                    backgroud_color = "green"
+                                    backgroud_color = "limeGreen"
                                 else:
                                     backgroud_color = "red"
                                 elementos.append(key[5:])  # Añadir nombre del taxi
