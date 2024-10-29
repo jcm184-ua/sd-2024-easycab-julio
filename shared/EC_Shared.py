@@ -18,6 +18,9 @@ def printWarning(mensaje):
 def printError(mensaje):
     print(datetime.now(), f"ERROR: {mensaje}")
 
+def printDebug(mensaje):
+    print(datetime.now(), f"DEBUG: {mensaje}")
+
 def abrirSocketServidor(socket_addr):
     printInfo(f"Abriendo socket servidor en la dirección {socket_addr}.")
     socketAbierto = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -32,29 +35,30 @@ def abrirSocketCliente(socket_addr):
     socketAbierto.connect(socket_addr)
     return socketAbierto
 
-def enviarMensajeServidor(conexion, mensaje):
+def enviarMensajeServidor(socket, mensaje):
     mensaje_codificado = mensaje.encode(FORMAT)
     longitud_mensaje = len(mensaje_codificado)
     longitud_envio = str(longitud_mensaje).encode(FORMAT)
     longitud_envio += b' ' * (HEADER - len(longitud_envio))
-    conexion.send(longitud_envio)
-    conexion.send(mensaje_codificado)
-    printInfo(f"Mensaje '{mensaje}' enviado a través de conexión {conexion.getpeername()}.")
+    socket.send(longitud_envio)
+    socket.send(mensaje_codificado)
+    printInfo(f"Mensaje '{mensaje}' enviado a través de conexión {socket.getpeername()}.")
 
-def recibirMensajeServidor(conexion):
-    longitud_mensaje = conexion.recv(HEADER).decode(FORMAT)
+def recibirMensajeServidor(socket):
+    longitud_mensaje = socket.recv(HEADER).decode(FORMAT)
     if longitud_mensaje:
         longitud_mensaje = int(longitud_mensaje)
-        mensaje = conexion.recv(longitud_mensaje).decode(FORMAT)
-        printInfo(f"Mensaje '{mensaje}' recibido a través de la conexión {conexion.getpeername()}.")
+        mensaje = socket.recv(longitud_mensaje).decode(FORMAT)
+        printInfo(f"Mensaje '{mensaje}' recibido a través de la conexión {socket.getpeername()}.")
         return mensaje
 
-def recibirMensajeServidorSilent(conexion):
-    longitud_mensaje = conexion.recv(HEADER).decode(FORMAT)
+def recibirMensajeServidorSilent(socket):
+    longitud_mensaje = socket.recv(HEADER).decode(FORMAT)
     if longitud_mensaje:
         longitud_mensaje = int(longitud_mensaje)
-        mensaje = conexion.recv(longitud_mensaje).decode(FORMAT)
+        mensaje = socket.recv(longitud_mensaje).decode(FORMAT)
         return mensaje
+    return None
 
 def enviarMensajeCliente(socket, mensaje):
     mensaje_codificado = mensaje.encode(FORMAT)
@@ -65,19 +69,20 @@ def enviarMensajeCliente(socket, mensaje):
     socket.send(mensaje_codificado)
     printInfo(f"Mensaje '{mensaje}' enviado a través de conexión {socket.getsockname()}.")
 
-def recibirMensajeCliente(conexion):
-    longitud_mensaje = conexion.recv(HEADER).decode(FORMAT)
+def recibirMensajeCliente(socket):
+    longitud_mensaje = socket.recv(HEADER).decode(FORMAT)
     if longitud_mensaje:
         longitud_mensaje = int(longitud_mensaje)
-        mensaje = conexion.recv(longitud_mensaje).decode(FORMAT)
-        printInfo(f"Mensaje '{mensaje}' recibido a través de la conexión {conexion.getsockname()}.")
+        mensaje = socket.recv(longitud_mensaje).decode(FORMAT)
+        printInfo(f"Mensaje '{mensaje}' recibido a través de la conexión {socket.getsockname()}.")
         return mensaje
+    return None
 
-def recibirMensajeClienteSilent(conexion):
-    longitud_mensaje = conexion.recv(HEADER).decode(FORMAT)
+def recibirMensajeClienteSilent(socket):
+    longitud_mensaje = socket.recv(HEADER).decode(FORMAT)
     if longitud_mensaje:
         longitud_mensaje = int(longitud_mensaje)
-        mensaje = conexion.recv(longitud_mensaje).decode(FORMAT)
+        mensaje = socket.recv(longitud_mensaje).decode(FORMAT)
         return mensaje
 
 def conectarBrokerConsumidor(broker_addr, topic):
