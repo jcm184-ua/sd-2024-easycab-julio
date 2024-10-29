@@ -1,10 +1,11 @@
 {
     "taxis": [
-        {"id": "1", "destino": "a", "estado": "Libre"},
-        {"id": "2", "destino": "b", "estado": "Ocupado"}
+        {"id": "1", "destino": "a", "estado": "OK. Servicio d"},
+        {"id": "2", "destino": "b", "estado": "KO. Desconectado"},
+        {"id": "3", "destino": "c", "estado": "OK. Servicio e"}
     ],
     "clientes": [
-        {"id": "a", "destino": "E", "estado": "Esperando"},
-        {"id": "b", "destino": "F", "estado": "Asignado"}
+        {"id": "d", "destino": "A", "estado": "OK. Taxi 1"},
+        {"id": "e", "destino": "C", "estado": "OK. Taxi 3"}
     ]
 }

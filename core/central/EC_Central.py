@@ -147,9 +147,13 @@ def gestionarBrokerClientes():
                     printInfo(f"Asignando servicio del cliente {idCliente} al taxi {taxiElegido}.")
                     mapa.activateTaxi(taxiElegido)
                     publicarMensajeEnTopic(f"[EC_Central->EC_DE_{taxiElegido}][SERVICIO][{idCliente}->{localizacion}]", TOPIC_TAXIS, BROKER_ADDR)
+
                     ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'enCamino' WHERE id = {taxiElegido}")
                     ejecutarSentenciaBBDD(f"UPDATE taxis SET cliente = '{idCliente}' WHERE id = {taxiElegido}")
                     ejecutarSentenciaBBDD(f"UPDATE taxis SET destino = '{localizacion}' WHERE id = {taxiElegido}")
+
+                    publicarMensajeEnTopic(f"[EC_DE_{taxiElegido}] Servicio asignado [{idCliente}->{localizacion}]", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+
         else:
             #printInfo(mensaje)
             #printInfo(mensaje.value.decode(FORMAT))
@@ -184,7 +188,10 @@ def gestionarBrokerTaxis():
                     mapa.activateTaxi(idTaxi)
                 elif estado == "KO":
                     mapa.deactivateTaxi(idTaxi)
+
                 ejecutarSentenciaBBDD(f"UPDATE taxis SET sensores = '{estado}' WHERE id = {idTaxi}")
+                publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Cambio su estado a: {estado}", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+
             elif camposMensaje[1] == "MOVIMIENTO":
                 # ['EC_DigitalEngine-1->EC_Central', '(1,2)']
                 posX = int(camposMensaje[2].split(",")[0])
@@ -198,32 +205,32 @@ def gestionarBrokerTaxis():
                     ejecutarSentenciaBBDD(f"UPDATE clientes SET posicion = '{posX},{posY}' WHERE id = '{idCliente}'")
                     mapa.move(f"cliente_{idCliente}", posX, posY)
 
-                # Si tiene cliente, moverlo también
-                #if camposMensaje[3] != "None":
-                #    mapa.move(f"cliente_{camposMensaje[3]}", posX, posY)
+
 
                 mapa.move(f"taxi_{idTaxi}", posX, posY)
                 mapa.print()
-                #mapa.draw_on_canvas()
+
                 publicarMensajeEnTopic(f"[EC_Central->ALL][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]", TOPIC_TAXIS, BROKER_ADDR)
             elif camposMensaje[1] == "SERVICIO":
                 if camposMensaje[2] == "CLIENTE_RECOGIDO":
                     publicarMensajeEnTopic(f"EC_Central->EC_Customer_{camposMensaje[3]}[RECOGIDO]", TOPIC_CLIENTES, BROKER_ADDR)
                     ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'servicio' WHERE id = {idTaxi}")
-                    #mapa.move(f"cliente_{camposMensaje[3]}", 0, 0)
-                    #mapa.print()
-                    #publicarMensajeEnTopic(f"[EC_Central->ALL][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]", TOPIC_TAXIS, BROKER_ADDR)
+                    publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Recogido a su cliente {camposMensaje[3]}", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+                    #actualizarEstadosJSON(True, camposMensaje[3], f"OK. Taxi {idTaxi}", camposMensaje[4])
+                    #actualizarEstadosJSON(False, idTaxi, f"OK. Servicio {camposMensaje[3]}", camposMensaje[4]) # TAXI
 
                 if camposMensaje[2] == "CLIENTE_EN_DESTINO":
                     posX = int(camposMensaje[4].split(",")[0])
                     posY = int(camposMensaje[4].split(",")[1])
                     idCliente = camposMensaje[3]
-                    #mapa.move(f"cliente_{idCliente}", posX, posY)
-                    #mapa.print()
-                    #publicarMensajeEnTopic(f"[EC_Central->ALL][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]", TOPIC_TAXIS, BROKER_ADDR)
 
                     publicarMensajeEnTopic(f"EC_Central->EC_Customer_{idCliente}[EN_DESTINO]", TOPIC_CLIENTES, BROKER_ADDR)
+
                     mapa.deactivateTaxi(idTaxi)
+                    publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Llevado al cliente {camposMensaje[3]} a su destino", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+                    #actualizarEstadosJSON(True, camposMensaje[3], "OK. En destino", camposMensaje[4]) # CLIENTE
+                    #actualizarEstadosJSON(False, idTaxi, "OK. Parado") # TAXI
+
                     taxisLibres.append(idTaxi)
                     ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'esperando' WHERE id = {idTaxi}")
                     ejecutarSentenciaBBDD(f"UPDATE taxis SET cliente = NULL WHERE id = {idTaxi}")
@@ -262,14 +269,18 @@ def autenticarTaxi(conexion, direccion):
             printInfo(f"El taxi {idTaxi} acaba de arrancar.")
         #[EC_Central->EC_DE_1][AUTHORIZED][1,2][Cliente][Destino]
         taxiBBDD = ejecutarSentenciaBBDD(f"SELECT * FROM taxis WHERE id = {idTaxi}")
-        publicarMensajeEnTopic("PRUEBA", TOPIC_CLIENTES, BROKER_ADDR)
-
+                
         enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][AUTHORIZED][{taxiBBDD[0][3].split(',')[0]},{taxiBBDD[0][3].split(',')[1]}][{taxiBBDD[0][4]}][{taxiBBDD[0][5]}]")
         enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]")
+
+        publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Autorizado.", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+        #actualizarEstadosJSON(False, idTaxi, "OK. Parado") 
         return idTaxi
+
     else:
         enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][NOT_AUTHORIZED]")
         return -1
+
 
 def gestionarTaxi(conexion, direccion):
     global taxisConectados, taxisLibres
@@ -303,11 +314,11 @@ def gestionarTaxi(conexion, direccion):
         
         mapa.deactivateTaxi(idTaxi)
         ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'desconectado' WHERE id = {idTaxi}")
-        
-        taxiBBDD = ejecutarSentenciaBBDD(f"SELECT * FROM taxis WHERE id = {idTaxi}")
 
         mapa.print()
-        
+
+        publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Su conexión ha caido.", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+
     else:
         printInfo(f"Taxi con conexion {conexion} y {direccion} no autorizado. Desconectando...")
         conexion.close()
@@ -319,6 +330,44 @@ def gestionarLoginTaxis():
         conexion, direccion = socketEscucha.accept()
         hiloTaxi = threading.Thread(target=gestionarTaxi, args=(conexion, direccion))
         hiloTaxi.start()
+
+def enviarEstados(TOPIC_ESTADOS_MAPA, broker_addr):
+    try:
+        # Conectar a la base de datos SQLite
+        conexion = sqlite3.connect('database.db')
+        cursor = conexion.cursor()
+
+        # Consultar los datos de la tabla 'taxis'
+        cursor.execute("SELECT * FROM taxis")
+        taxis = cursor.fetchall()
+
+        # Consultar los datos de la tabla 'clientes'
+        cursor.execute("SELECT * FROM clientes")
+        clientes = cursor.fetchall()
+
+        # Convertir los datos a JSON
+        data = {
+            "taxis": [
+                {"id": taxi[0], "estado": taxi[1], "sensores": taxi[2], "posicion": taxi[3], "cliente": taxi[4], "destino": taxi[5]}
+                for taxi in taxis
+            ],
+            "clientes": [
+                {"id": cliente[0], "posicion": cliente[1]}
+                for cliente in clientes
+            ]
+        }
+
+        # Cerrar la conexión con la base de datos
+        conexion.close()
+
+        # Convertir el objeto data a una cadena JSON
+        json_data = json.dumps(data)
+
+        # Enviar el JSON a Kafka
+        enviarJSONEnTopic(json_data, TOPIC_ESTADOS_MAPA, broker_addr)
+
+    except Exception as e:
+        print(f"Error al enviar la base de datos a Kafka: {e}")
 
 def main():
     comprobarArgumentos(sys.argv)
@@ -338,8 +387,11 @@ def main():
     hiloLoginTaxis = threading.Thread(target=gestionarLoginTaxis)
     hiloLoginTaxis.start()
 
-    #hiloMapa = threading.Thread(target=iniciarMapa)
-    #hiloMapa.start()
+    hiloMapa = threading.Thread(target=iniciarMapa, args=(mapa, BROKER_ADDR,))
+    hiloMapa.start()
+
+    enviarEstados(TOPIC_ESTADOS_MAPA, BROKER_ADDR)
+
 
 if __name__ == "__main__":
     main()
