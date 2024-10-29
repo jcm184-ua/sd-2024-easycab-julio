@@ -28,31 +28,34 @@ class Map:
     def print(self):
         """ Imprimir el mapa en consola """
         #print("MAPA:")
+        #for key, value in self.diccionarioPosiciones.items():
+        #    printDebug(f"{key} : {value}")
         for i in range(1, SIZE + 1):
             print("-" * int(((0.5 + SIZE) * 4 - 1)))
             print("|", end="")
             for j in range(1, SIZE + 1):
+                taxi = " "
+                localizacion = " "
+                cliente = " "
+                #time.sleep(0.1)
                 elementos = []  # Lista para almacenar elementos en la misma posición
                 for key, value in self.diccionarioPosiciones.items():
+                #    print(f"{i},{j}")
+                #    print(f"{key} : {value}", end="")
+                 #   print(value == f"{i},{j}")
                     if value == f"{i},{j}":
+                 #       print(f"{key} : {value}", end="")
                         if key.startswith('taxi'):
                             if key in self.taxisActivos:
-                                print(f"{COLORES_ANSII.BACKGROUD_GREEN}{COLORES_ANSII.BLACK}{key[5:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}", end="")
+                                taxi = f"{COLORES_ANSII.BACKGROUD_GREEN}{COLORES_ANSII.BLACK}{key[5:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}"
                             else:
-                                print(f"{COLORES_ANSII.BACKGROUD_RED}{COLORES_ANSII.BLACK}{key[5:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}", end="")
-                        else:
-                            print(f" ", end="")
+                                taxi = f"{COLORES_ANSII.BACKGROUD_RED}{COLORES_ANSII.BLACK}{key[5:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}"
                         if key.startswith('localizacion'):
-                            print(f"{COLORES_ANSII.BACKGROUD_BLUE}{COLORES_ANSII.BLACK}{key[13:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}", end="")
-                        else:
-                            print(f" ", end="")
+                            localizacion = f"{COLORES_ANSII.BACKGROUD_BLUE}{COLORES_ANSII.BLACK}{key[13:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}"
                         if key.startswith('cliente'):
-                            print(f"{COLORES_ANSII.BACKGROUD_YELLOW}{COLORES_ANSII.BLACK}{key[8:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}", end="")
-                        else:
-                            print(f" ", end="")
-                        break
+                            cliente = f"{COLORES_ANSII.BACKGROUD_YELLOW}{COLORES_ANSII.BLACK}{key[8:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}"
                 else:
-                    print("   ", end="")
+                    print(taxi + localizacion + cliente, end="")
                 print("|", end="")
             print()
         print("-" * int(((0.5+SIZE) * 4 - 1)))
@@ -274,7 +277,7 @@ def load_data_from_json(filename, add_taxi, add_client, clear_taxi_table, clear_
             add_client(cliente["id"], cliente["destino"], cliente["estado"])
 
 # Ejemplo de uso
-def main():
+def iniciarMapa():
     map_instance = Map()
 
     # Imprimir el mapa inicial por consola
