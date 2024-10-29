@@ -5,7 +5,6 @@ import threading
 import re
 from EC_Shared import *
 import time
-from kafka import KafkaProducer, KafkaConsumer  # Importar KafkaProducer y KafkaConsumer
 
 SIZE = 20
 TILE_SIZE = 30  # Tamaño de cada celda del mapa
@@ -62,7 +61,6 @@ class Map:
 
     # Reemplaza el método `draw_on_canvas` por este
     def draw_on_canvas(self, canvas):
-        print("Dibujando mapa...")
         if canvas is not None:
             """ Dibujar el mapa en un Canvas de Tkinter """
             canvas.delete("all")  # Limpiar el canvas
@@ -108,11 +106,7 @@ class Map:
                         canvas.create_text((x1 + x2) // 2, (y1 + y2) // 2, text=", ".join(elementos), fill=text_color)
 
             # Llamar a sí mismo después de 1000 ms (1 segundo)
-            self.after(1000, lambda: self.draw_on_canvas(canvas))
-
-
-
-
+            canvas.after(1000, lambda: self.draw_on_canvas(canvas))
 
     def clear(self):
         self.diccionarioPosiciones = {}
@@ -146,14 +140,33 @@ class Map:
         self.taxisActivos.remove(f"taxi_{idTaxi}")
 
 # Función en segundo plano para leer de Kafka
-def consumidorErrores(topic, broker_addr, add_error_callback):
-    consumer = conectarBrokerConsumidor(topic, broker_addr)
-    for mensaje in consumer:
-        camposMensaje = re.findall('[^\[\]]+', mensaje.value.decode(FORMAT))
-        recibidor = camposMensaje[0].split("->")[0]
-        add_error_callback(f"{recibidor}: {camposMensaje[1]}")
+def consumidorErrores(TOPIC_ERRORES_MAPA, BROKER_ADDR, add_error_callback):
+    consumer = conectarBrokerConsumidor(BROKER_ADDR, TOPIC_ERRORES_MAPA)
+    while True:
+        for mensaje in consumer:
+            camposMensaje = re.findall('[^\[\]]+', mensaje.value.decode(FORMAT))
+            recibidor = camposMensaje[0].split("->")[0]
+            add_error_callback(f"{recibidor}: {camposMensaje[1]}")
 
-def create_window(map_instance):
+def consumidorEstados(TOPIC_ESTADOS_MAPA, BROKER_ADDR, add_taxi_callback, add_client_callback, clear_taxi_table_callback, clear_client_table_callback):
+    consumer = conectarBrokerConsumidor(BROKER_ADDR, TOPIC_ESTADOS_MAPA)
+
+    while True:
+        for mensaje in consumer:
+            printInfo(f"Mensaje recibido: {mensaje.value.decode(FORMAT)}")
+            clear_taxi_table_callback()
+            clear_client_table_callback()
+            data = json.loads(mensaje.value.decode(FORMAT))
+            # Cargar taxis
+            for taxi in data.get("taxis", []):
+                add_taxi_callback(taxi.get("id"), taxi.get("destino"), f"{taxi.get('sensores', '')}. {taxi.get('estado', '')}")
+
+            # Cargar clientes
+            for cliente in data.get("clientes", []):
+                add_client_callback(cliente["id"], cliente["destino"], cliente["estado"])
+
+
+def create_window(map_instance, BROKER_ADDR):
     root = tk.Tk()
     root.title("Mapa de Taxis")
 
@@ -250,40 +263,17 @@ def create_window(map_instance):
     # Dibuja el mapa en el canvas
     threading.Thread(target=map_instance.draw_on_canvas, args=(canvas,), daemon=True).start()
 
-    load_data_from_json("jsonPrueba.json", add_taxi, add_client, clear_taxi_table, clear_client_table)
     addError("ERROR: Taxi 2 ha caido.")
     addError("INFO: Taxi 3 ha recogido a su cliente e.")
     # Iniciar el hilo para consumir mensajes de Kafka
     #topic = 'errores'
-    #broker_addr = 'localhost:20000'  # Reemplazar con tu dirección del broker
-    #threading.Thread(target=consumidorErrores, args=(topic, broker_addr, addError), daemon=True).start()
-
+    threading.Thread(target=consumidorErrores, args=(TOPIC_ERRORES_MAPA, BROKER_ADDR, addError), daemon=True).start()
+    threading.Thread(target=consumidorEstados, args=(TOPIC_ESTADOS_MAPA, BROKER_ADDR, add_taxi, add_client, clear_taxi_table, clear_client_table), daemon=True).start()
     # Ejecutar el loop de Tkinter para mantener la ventana abierta
     root.mainloop()
 
-def load_data_from_json(filename, add_taxi, add_client, clear_taxi_table, clear_client_table):
-    # Limpiar tabla de taxis
-    clear_taxi_table()
-
-    # Limpiar tabla de clientes
-    clear_client_table()
-
-    with open(filename, 'r') as file:
-        data = json.load(file)
-
-        # Cargar taxis
-        for taxi in data["taxis"]:
-            add_taxi(taxi["id"], taxi["destino"], taxi["estado"])
-
-        # Cargar clientes
-        for cliente in data["clientes"]:
-            add_client(cliente["id"], cliente["destino"], cliente["estado"])
-
-
 # Ejemplo de uso
-def iniciarMapa():
-    map_instance = Map()
-
+def iniciarMapa(map_instance, BROKER_ADDR):
     # Imprimir el mapa inicial por consola
     map_instance.print()
 
@@ -318,7 +308,7 @@ def iniciarMapa():
     map_instance.print()
 
     # Mostrar el mapa gráficamente con Tkinter y consumir/ producir mensajes de Kafka
-    create_window(map_instance)
+    create_window(map_instance, BROKER_ADDR)
 
 if __name__ == "__main__":
     iniciarMapa()

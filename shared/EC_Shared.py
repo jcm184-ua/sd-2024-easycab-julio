@@ -1,13 +1,15 @@
 from datetime import datetime
 import socket
 from kafka import KafkaConsumer, KafkaProducer
+import json
 
 HEADER = 64
 FORMAT = 'utf-8'
 
 TOPIC_TAXIS = 'TAXIS'
 TOPIC_CLIENTES = 'CLIENTES'
-TOPIC_ERRORES = 'ERRORES'
+TOPIC_ERRORES_MAPA = 'ERRORES_MAPA'
+TOPIC_ESTADOS_MAPA = 'ESTADOS_MAPA'
 
 def printInfo(mensaje):
     print(datetime.now(), f"INFO: {mensaje}")
@@ -93,3 +95,21 @@ def publicarMensajeEnTopic(mensaje, topic, broker_addr):
     # TODO: Fallo de publicación.
     conexion.close()
     printInfo("Desconectado del broker como productor.")
+
+def enviarJSONEnTopic(data, topic, broker_addr):
+    try:
+        printInfo(f"Conectando al broker en la dirección ({broker_addr}) como productor.")
+        conexion = KafkaProducer(bootstrap_servers=broker_addr)
+
+        # Enviar el mensaje al topic
+        conexion.send(topic, data.encode(FORMAT))  # Asegúrate de que FORMAT es correcto
+        conexion.flush()
+        
+        printInfo(f"Mensaje JSON enviado: {data} en topic {topic}.")
+    
+    except Exception as e:
+        print(f"Error al enviar el mensaje JSON en el topic: {e}")
+    
+    finally:
+        conexion.close()
+        printInfo("Desconectado del broker como productor.")

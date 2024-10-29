@@ -37,6 +37,7 @@ destY = None
 
 clienteARecoger = None
 clienteRecogido = False
+idLocalizacion = None
 
 def comprobarArgumentos(argumentos):
     if len(argumentos) != 7:
@@ -170,7 +171,7 @@ def gestionarConexionCentral():
         #Una vez autorizados y con posición, esperar a que se nos indique un servicio
 
 def gestionarBroker():
-    global mapa, cltX, cltY, destX, destY, clienteARecoger
+    global mapa, cltX, cltY, destX, destY, clienteARecoger, idLocalizacion
 
     printInfo(f"Conectando al broker en la dirección ({BROKER_ADDR}) como consumidor.")
     consumidor = conectarBrokerConsumidor(BROKER_ADDR, TOPIC_TAXIS)
@@ -222,7 +223,7 @@ def obtenerPosicion(id, cliente):
 import time
 
 def mover(x, y):
-    global posX, posY, clienteRecogido, clienteARecoger
+    global posX, posY, clienteRecogido, clienteARecoger, idLocalizacion
 
     if (x > 20) or (x < 0) or (y > 20) or (y < 0):
         print("ERROR: Movimiento demasiado grande")
@@ -233,7 +234,10 @@ def mover(x, y):
         posY = y
 
         print(f"INFO: Moviendo a dirección ({x},{y})")
-        publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][MOVIMIENTO][{x},{y}][{clienteARecoger}]", TOPIC_TAXIS, BROKER_ADDR)
+        if clienteRecogido:
+            publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][MOVIMIENTO][{x},{y}][{clienteARecoger}][{idLocalizacion}]", TOPIC_TAXIS, BROKER_ADDR)
+        else:
+            publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][MOVIMIENTO][{x},{y}][{None}][{None}]", TOPIC_TAXIS, BROKER_ADDR)
 
 def calcularMovimientos(X, Y, destX, destY):
 
@@ -249,7 +253,7 @@ def calcularMovimientos(X, Y, destX, destY):
     return X, Y
 
 def manejarMovimientos():
-    global posX, posY, destX, destY, cltX, cltY, clienteRecogido, clienteARecoger
+    global posX, posY, destX, destY, cltX, cltY, clienteRecogido, clienteARecoger, idLocalizacion
 
     estadoSensor = True
     while True:
@@ -263,7 +267,10 @@ def manejarMovimientos():
                     time.sleep(1)  # Esperar un segundo entre movimientos
                 clienteRecogido = True
                 printInfo("Cliente recogido")
-                publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_RECOGIDO][{clienteARecoger}]", TOPIC_TAXIS, BROKER_ADDR)
+                if clienteRecogido:
+                    publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_RECOGIDO][{clienteARecoger}][{idLocalizacion}]", TOPIC_TAXIS, BROKER_ADDR)
+                else:   
+                    publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_RECOGIDO][{None}][{None}]", TOPIC_TAXIS, BROKER_ADDR)
 
             # Mover hacia el destino del cliente
             elif clienteRecogido and destX is not None and destY is not None:  
@@ -273,7 +280,7 @@ def manejarMovimientos():
                     mover(x, y)
                     time.sleep(1)  # Esperar un segundo entre movimientos
                 printInfo("Destino alcanzado")
-                publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_EN_DESTINO][{clienteARecoger}][{x},{y}]", TOPIC_TAXIS, BROKER_ADDR)
+                publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_EN_DESTINO][{clienteARecoger}][{x},{y}][{idLocalizacion}]", TOPIC_TAXIS, BROKER_ADDR)
                 clienteRecogido = False
                 clienteARecoger = None
                 destX, destY, cltX, cltY = None, None, None, None

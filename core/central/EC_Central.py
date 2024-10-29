@@ -24,7 +24,7 @@ taxisConectados = [] # [1, 2, 3, 5]
 taxisLibres = [] # [2, 3]
 mapa = Map()
 
-def     comprobarArgumentos(argumentos):
+def comprobarArgumentos(argumentos):
     if len(argumentos) != 4:
         printInfo("CHECKS: ERROR LOS ARGUMENTOS. Necesito estos argumentos: <LISTEN_PORT> <BROKER_IP> <BROKER_PORT>")
         exit()
@@ -119,6 +119,7 @@ def gestionarBrokerClientes():
                     taxiElegido = taxisLibres.pop()
                     printInfo(f"Asignando servicio del cliente {idCliente} al taxi {taxiElegido}.")
                     publicarMensajeEnTopic(f"[EC_Central->EC_DE_{taxiElegido}][SERVICIO][{idCliente}->{localizacion}]", TOPIC_TAXIS, BROKER_ADDR)
+                    publicarMensajeEnTopic(f"[EC_DE_{taxiElegido}] Servicio asignado [{idCliente}->{localizacion}]", TOPIC_ERRORES_MAPA, BROKER_ADDR)
                 else:
                     printInfo(f"ERROR: No hay taxis disponibles para el cliente {idCliente}.")
                     publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{idCliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR)
@@ -156,6 +157,7 @@ def gestionarBrokerTaxis():
                     mapa.activateTaxi(idTaxi)
                 elif estado == "KO":
                     mapa.deactivateTaxi(idTaxi)
+                publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Cambio su estado a: {estado}", TOPIC_ERRORES_MAPA, BROKER_ADDR)
             elif camposMensaje[1] == "MOVIMIENTO":
                 # ['EC_DigitalEngine-1->EC_Central', '(1,2)']
                 posX = int(camposMensaje[2].split(",")[0])
@@ -165,7 +167,6 @@ def gestionarBrokerTaxis():
                     mapa.move(f"cliente_{camposMensaje[3]}", posX, posY)
                 mapa.move(f"taxi_{idTaxi}", posX, posY)
                 mapa.print()
-                mapa.draw_on_canvas()
                 publicarMensajeEnTopic(f"[EC_Central->ALL][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]", TOPIC_TAXIS, BROKER_ADDR)
             elif camposMensaje[1] == "SERVICIO":
                 if camposMensaje[2] == "CLIENTE_RECOGIDO":
@@ -173,6 +174,9 @@ def gestionarBrokerTaxis():
                     mapa.move(f"cliente_{camposMensaje[3]}", 0, 0)
                     mapa.print()
                     publicarMensajeEnTopic(f"[EC_Central->ALL][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]", TOPIC_TAXIS, BROKER_ADDR)
+                    publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Recogido a su cliente {camposMensaje[3]}", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+                    #actualizarEstadosJSON(True, camposMensaje[3], f"OK. Taxi {idTaxi}", camposMensaje[4])
+                    #actualizarEstadosJSON(False, idTaxi, f"OK. Servicio {camposMensaje[3]}", camposMensaje[4]) # TAXI
 
                 if camposMensaje[2] == "CLIENTE_EN_DESTINO":
                     posX = int(camposMensaje[4].split(",")[0])
@@ -183,6 +187,9 @@ def gestionarBrokerTaxis():
                     publicarMensajeEnTopic(f"[EC_Central->ALL][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]", TOPIC_TAXIS, BROKER_ADDR)
     
                     publicarMensajeEnTopic(f"EC_Central->EC_Customer_{idCliente}[EN_DESTINO]", TOPIC_CLIENTES, BROKER_ADDR)
+                    publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Llevado al cliente {camposMensaje[3]} a su destino", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+                    #actualizarEstadosJSON(True, camposMensaje[3], "OK. En destino", camposMensaje[4]) # CLIENTE
+                    #actualizarEstadosJSON(False, idTaxi, "OK. Parado") # TAXI
                     taxisLibres.append(idTaxi)
         else:
             #printInfo(mensaje)
@@ -208,6 +215,8 @@ def autenticarTaxi(conexion, direccion):
                     posicion = mapa.getPosition(f"taxi_{idTaxi}")
 
                     enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][AUTHORIZED][{posicion.split(',')[0]},{posicion.split(',')[1]}]")
+                    publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Autorizado.", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+                    #actualizarEstadosJSON(False, idTaxi, "OK. Parado") 
                     # SE PUEDE HACER POR KAFKA TAMBIEN
                     enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]")
                 except:
@@ -223,7 +232,6 @@ def autenticarTaxi(conexion, direccion):
         printInfo(f"ERROR: EXCEPCION, CONEXION PERDIDA: {e}")
 
     return idTaxi
-
 
 def gestionarTaxi(conexion, direccion):
     global taxisConectados, taxisLibres
@@ -257,6 +265,7 @@ def gestionarTaxi(conexion, direccion):
         taxisConectados.remove(idTaxi)
         taxisLibres.remove(idTaxi)
         mapa.deactivateTaxi(f"taxi_{idTaxi}")
+        publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Su conexión ha caido.", TOPIC_ERRORES_MAPA, BROKER_ADDR)
     else:
         printInfo(f"Taxi con conexion {conexion} y {direccion} no autorizado. Desconectando...")
         conexion.close()
@@ -269,6 +278,44 @@ def asignarServicio(taxi, cliente, localizacion):
 
     global taxisLibres
     taxisLibres.append(taxi)
+
+def enviarEstados(TOPIC_ESTADOS_MAPA, broker_addr):
+    try:
+        # Conectar a la base de datos SQLite
+        conexion = sqlite3.connect('database.db')
+        cursor = conexion.cursor()
+
+        # Consultar los datos de la tabla 'taxis'
+        cursor.execute("SELECT * FROM taxis")
+        taxis = cursor.fetchall()
+
+        # Consultar los datos de la tabla 'clientes'
+        cursor.execute("SELECT * FROM clientes")
+        clientes = cursor.fetchall()
+
+        # Convertir los datos a JSON
+        data = {
+            "taxis": [
+                {"id": taxi[0], "estado": taxi[1], "sensores": taxi[2], "posicion": taxi[3], "cliente": taxi[4], "destino": taxi[5]}
+                for taxi in taxis
+            ],
+            "clientes": [
+                {"id": cliente[0], "posicion": cliente[1]}
+                for cliente in clientes
+            ]
+        }
+
+        # Cerrar la conexión con la base de datos
+        conexion.close()
+
+        # Convertir el objeto data a una cadena JSON
+        json_data = json.dumps(data)
+
+        # Enviar el JSON a Kafka
+        enviarJSONEnTopic(json_data, TOPIC_ESTADOS_MAPA, broker_addr)
+
+    except Exception as e:
+        print(f"Error al enviar la base de datos a Kafka: {e}")
 
 def main():
     comprobarArgumentos(sys.argv)
@@ -288,8 +335,10 @@ def main():
     socketEscucha = abrirSocketServidor(THIS_ADDR)
     socketEscucha.listen()
 
-    hiloMapa = threading.Thread(target=iniciarMapa)
+    hiloMapa = threading.Thread(target=iniciarMapa, args=(mapa, BROKER_ADDR,))
     hiloMapa.start()
+
+    enviarEstados(TOPIC_ESTADOS_MAPA, BROKER_ADDR)
 
     while True:
         #printInfo("acabo de iterar")
