@@ -27,32 +27,35 @@ class Map:
 
     def print(self):
         """ Imprimir el mapa en consola """
-        print("MAPA:")
+        #print("MAPA:")
+        #for key, value in self.diccionarioPosiciones.items():
+        #    printDebug(f"{key} : {value}")
         for i in range(1, SIZE + 1):
             print("-" * int(((0.5 + SIZE) * 4 - 1)))
             print("|", end="")
             for j in range(1, SIZE + 1):
+                taxi = " "
+                localizacion = " "
+                cliente = " "
+                #time.sleep(0.1)
                 elementos = []  # Lista para almacenar elementos en la misma posición
                 for key, value in self.diccionarioPosiciones.items():
+                #    print(f"{i},{j}")
+                #    print(f"{key} : {value}", end="")
+                 #   print(value == f"{i},{j}")
                     if value == f"{i},{j}":
+                 #       print(f"{key} : {value}", end="")
                         if key.startswith('taxi'):
                             if key in self.taxisActivos:
-                                print(f"{COLORES_ANSII.BACKGROUD_GREEN}{COLORES_ANSII.BLACK}{key[5:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}", end="")
+                                taxi = f"{COLORES_ANSII.BACKGROUD_GREEN}{COLORES_ANSII.BLACK}{key[5:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}"
                             else:
-                                print(f"{COLORES_ANSII.BACKGROUD_RED}{COLORES_ANSII.BLACK}{key[5:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}", end="")
-                        else:
-                            print(f" ", end="")
+                                taxi = f"{COLORES_ANSII.BACKGROUD_RED}{COLORES_ANSII.BLACK}{key[5:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}"
                         if key.startswith('localizacion'):
-                            print(f"{COLORES_ANSII.BACKGROUD_BLUE}{COLORES_ANSII.BLACK}{key[13:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}", end="")
-                        else:
-                            print(f" ", end="")
+                            localizacion = f"{COLORES_ANSII.BACKGROUD_BLUE}{COLORES_ANSII.BLACK}{key[13:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}"
                         if key.startswith('cliente'):
-                            print(f"{COLORES_ANSII.BACKGROUD_YELLOW}{COLORES_ANSII.BLACK}{key[8:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}", end="")
-                        else:
-                            print(f" ", end="")
-                        break
+                            cliente = f"{COLORES_ANSII.BACKGROUD_YELLOW}{COLORES_ANSII.BLACK}{key[8:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}"
                 else:
-                    print("   ", end="")
+                    print(taxi + localizacion + cliente, end="")
                 print("|", end="")
             print()
         print("-" * int(((0.5+SIZE) * 4 - 1)))
@@ -77,14 +80,14 @@ class Map:
                     for key, value in self.diccionarioPosiciones.items():
                         if value == f"{i+1},{j+1}":
                             if key.startswith('localizacion'):
-                                canvas.create_rectangle(x1, y1, x2, y2, fill="blue")
+                                canvas.create_rectangle(x1, y1, x2, y2, fill="dodgerBlue")
                                 elementos.append(key[13:])  # Añadir nombre de la localización
                             elif key.startswith('cliente'):
                                 canvas.create_rectangle(x1, y1, x2, y2, fill="yellow")
                                 elementos.append(key[8:])  # Añadir nombre del cliente
                             elif key.startswith('taxi'):
                                 if key in self.taxisActivos:
-                                    canvas.create_rectangle(x1, y1, x2, y2, fill="green")  # Color para taxi activo
+                                    canvas.create_rectangle(x1, y1, x2, y2, fill="limeGreen")  # Color para taxi activo
                                 else:
                                     canvas.create_rectangle(x1, y1, x2, y2, fill="red")  # Color para taxi no activo
                                 elementos.append(key[5:])  # Añadir nombre del taxi
@@ -113,25 +116,23 @@ class Map:
     def loadActiveTaxis(self, jsonData):
         self.taxisActivos = json.loads(jsonData.replace("(", "[").replace(")", "]"))
 
-    def set(self, key, x, y):
+    def setPosition(self, key, x, y):
         self.diccionarioPosiciones[key] = f"{x},{y}"
-        printInfo(f"Posición de {key} establecida en {x},{y}")
+        #printDebug(f"Posición de {key} establecida en {x},{y}")
 
     def move(self, key, x, y):
         initX = x
         initY = y
         self.diccionarioPosiciones[key] = f"{int(initX)},{int(initY)}"
-        print(f"INFO: Movimiento realizado a {initX},{initY} para {key}")
-
+        printInfo(f"Movimiento realizado a {initX},{initY} para {key}")
 
     def getPosition(self, key):
         if key not in self.diccionarioPosiciones:
-            printError("No se ha encontrado la posición.")
+            #printDebug(f"No se ha encontrado {key} en el mapa.")
             return None
         else:
             self.diccionarioPosiciones[key]
             return self.diccionarioPosiciones[key]
-
 
     def activateTaxi(self, idTaxi):
         self.taxisActivos.append(f"taxi_{idTaxi}")
@@ -275,7 +276,6 @@ def load_data_from_json(filename, add_taxi, add_client, clear_taxi_table, clear_
         for cliente in data["clientes"]:
             add_client(cliente["id"], cliente["destino"], cliente["estado"])
 
-
 # Ejemplo de uso
 def iniciarMapa():
     map_instance = Map()
@@ -312,8 +312,9 @@ def iniciarMapa():
     map_instance.loadActiveTaxis(pruebaJson2)
     map_instance.print()
 
-    # Mostrar el mapa gráficamente con Tkinter y consumir/ producir mensajes de Kafka
-    create_window(map_instance)
+    map_instance.iniciarMapa()
+
+
 
 if __name__ == "__main__":
-    iniciarMapa()
+    main()
