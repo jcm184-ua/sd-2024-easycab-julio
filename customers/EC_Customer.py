@@ -19,7 +19,7 @@ servicios = []
 
 def comprobarArgumentos(argumentos):
     if len(argumentos) != 4:
-        printInfo("ERROR LOS ARGUMENTOS. Necesito estos argumentos: <BROKER_IP> <BROKER_PORT> <ID>")
+        printError("Necesito estos argumentos: <BROKER_IP> <BROKER_PORT> <ID>")
         exit()
     printInfo("Número de argumentos correcto.")
 
@@ -39,12 +39,11 @@ def leerServicios():
     try:
         with open('./EC_Requests.json') as json_file:
             jsonServicios = json.load(json_file)
-            #print(jsonServicios)
             for request in jsonServicios['Requests']:
                 printInfo(f"Cargando servicio {request['Id']}.")
                 servicios.append(request['Id'])
 
-            print(servicios)
+            #printDebug(servicios)
             printInfo("Servicios cargados con éxito.")
     except IOError as error:
         printInfo("FATAL: No se ha podido abrir el fichero.")
@@ -57,7 +56,7 @@ def esperarMensaje():
     conexion = conectarBrokerConsumidor(BROKER_ADDR, TOPIC_CLIENTES)
     while True:
         for mensaje in conexion:
-            print(f"DEBUG: Mensaje recibido: {mensaje.value.decode(FORMAT)}")
+            #printDebug(f"Mensaje recibido: {mensaje.value.decode(FORMAT)}")
             camposMensaje = re.findall('[^\[\]]+', mensaje.value.decode(FORMAT))
             if camposMensaje[0] == f"EC_Central->EC_Customer_{ID}":
             
@@ -95,7 +94,7 @@ def evaluarMensaje(mensajeRecibido):
         #TODO: Gestionar error
 
 def solicitarServicio(servicio):
-    printInfo(f"Procedo a solicitar el servicio {servicio}")
+    printInfo(f"Procedo a solicitar el servicio {servicio}.")
     publicarMensajeEnTopic(f"[EC_Customer_{ID}->EC_Central][{servicio}]", TOPIC_CLIENTES, BROKER_ADDR) # (Solicitar servicio
 
     esperarMensaje()
