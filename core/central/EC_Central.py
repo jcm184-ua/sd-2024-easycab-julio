@@ -25,6 +25,7 @@ BROKER_ADDR = None
 taxisConectados = [] # [1, 2, 3, 5]
 taxisLibres = [] # [2, 3]
 mapa = Map()
+irBase = False
 
 def comprobarArgumentos(argumentos):
     if len(argumentos) != 4:
@@ -382,6 +383,42 @@ def gestionarLoginTaxis():
         hiloTaxi = threading.Thread(target=gestionarTaxi, args=(conexion, direccion))
         hiloTaxi.start()
 
+def dirijirABase():
+    global irBase
+
+    estado_anterior = None 
+
+    while True:
+        if irBase != estado_anterior: 
+            if irBase:
+                printInfo("Enviando todos los taxis a base.")
+                publicarMensajeEnTopic(f"[EC_Central->BASE][SI]", TOPIC_TAXIS, BROKER_ADDR)
+                publicarMensajeEnTopic(f"[EC_Central] Enviando todos los taxis a base", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+            else:
+                printInfo("Cancelando envío a base.")
+                publicarMensajeEnTopic(f"[EC_Central->BASE][NO]", TOPIC_TAXIS, BROKER_ADDR)
+                publicarMensajeEnTopic(f"[EC_Central] Los taxis pueden salir de base y continuar su servicio", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+
+            # Actualizamos el estado anterior
+            estado_anterior = irBase
+
+        
+
+        time.sleep(1)
+
+def inputBase():
+    global irBase
+
+    threading.Thread(target=dirijirABase).start()
+
+    while True:
+        if not irBase:
+            input("Presiona Enter para enviar todos los taxis a base.")
+            irBase = True
+        else:
+            input("Presiona Enter para cancelar el envío a base.")
+            irBase = False
+
 def main():
     comprobarArgumentos(sys.argv)
     asignarConstantes(sys.argv)
@@ -402,6 +439,9 @@ def main():
 
     hiloMapa = threading.Thread(target=iniciarMapa, args=(mapa, BROKER_ADDR,))
     hiloMapa.start()
+
+    hiloBase = threading.Thread(target=inputBase)
+    hiloBase.start()
 
 
 if __name__ == "__main__":

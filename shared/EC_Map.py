@@ -184,20 +184,29 @@ def consumidorEstados(TOPIC_ESTADOS_MAPA, BROKER_ADDR, add_taxi_callback, add_cl
                         clienteID = taxi.get("cliente")
                         if taxi.get("destino"):
                             locID = taxi.get("destino")
-
-                    if taxi.get("estado") == "servicio":
-                        taxiEstado = f"OK. Servicio " + clienteID
-                        taxiDestino = taxi.get("destino")
-                    elif taxi.get("estado") == "enCamino":
-                        taxiEstado = f"OK. Servicio " + clienteID
-                        taxiDestino = clienteID
-                    elif taxi.get("estado") == "esperando":
-                        taxiEstado = f"OK. Parado"
-                    elif taxi.get("estado") == "desconectado":
-                        taxiEstado = f"KO. Parado"
+                    
+                    if taxi.get("estado") == "OK":
+                        if taxi.get("estado") == "servicio":
+                            taxiEstado = f"OK. Servicio " + clienteID
+                            taxiDestino = taxi.get("destino")
+                        elif taxi.get("estado") == "enCamino":
+                            taxiEstado = f"OK. Servicio " + clienteID
+                            taxiDestino = clienteID
+                        elif taxi.get("estado") == "esperando":
+                            taxiEstado = f"OK. Parado"
+                        elif taxi.get("estado") == "desconectado":
+                            taxiEstado = f"KO. Parado"
+                        else:
+                            taxiEstado = taxi.get("estado")
+                            taxiDestino = taxi.get("destino")
                     else:
-                        taxiEstado = taxi.get("estado")
-                        taxiDestino = taxi.get("destino")
+                        if taxi.get("estado") == "servicio":
+                            taxiDestino = taxi.get("destino")
+                        elif taxi.get("estado") == "enCamino":
+                            taxiDestino = clienteID
+                            
+                        taxiEstado = f"KO. Parado"
+                        
 
                     add_taxi_callback(
                         taxiID,

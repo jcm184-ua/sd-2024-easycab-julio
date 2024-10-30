@@ -39,6 +39,7 @@ destY = None
 clienteARecoger = None
 clienteRecogido = False
 idLocalizacion = None
+irBase = False
 
 def comprobarArgumentos(argumentos):
     if len(argumentos) != 7:
@@ -206,7 +207,7 @@ def gestionarConexionCentral():
         #Una vez autorizados y con posición, esperar a que se nos indique un servicio
 
 def gestionarBroker():
-    global mapa, cltX, cltY, destX, destY, clienteARecoger, idLocalizacion
+    global mapa, cltX, cltY, destX, destY, clienteARecoger, idLocalizacion, irBase, clienteRecogido
 
     printInfo(f"Conectando al broker en la dirección ({BROKER_ADDR}) como consumidor.")
     consumidor = conectarBrokerConsumidor(BROKER_ADDR, TOPIC_TAXIS)
@@ -221,6 +222,11 @@ def gestionarBroker():
                 mapa.loadJson(camposMensaje[1])
                 mapa.loadActiveTaxis(camposMensaje[2])
                 mapa.print()
+            elif camposMensaje[0] == f"EC_Central->BASE":
+                if camposMensaje[1] == "SI":
+                    irBase = True
+                elif camposMensaje[1] == "NO":
+                    irBase = False
             elif camposMensaje[0] == f"EC_Central->EC_DE_{ID}":
                 if camposMensaje[1] == "SERVICIO":
                     clienteARecoger = camposMensaje[2].split("->")[0]
@@ -252,12 +258,14 @@ def obtenerPosicion(id, cliente):
 import time
 
 def mover(x, y):
-    global posX, posY, clienteRecogido, clienteARecoger, idLocalizacion
+    global posX, posY, clienteRecogido, clienteARecoger, idLocalizacion, estadoSensores
 
     if (x > 20) or (x < 0) or (y > 20) or (y < 0):
         printError("Movimiento demasiado grande")
     elif (x == posX) and (y == posY):
         pass
+    elif not estadoSensores:
+        printError("Sensores no operativos. No se puede realizar el movimiento")
     else:
         posX = x
         posY = y
@@ -284,7 +292,7 @@ def calcularMovimientos(X, Y, destX, destY):
     return X, Y
 
 def manejarMovimientos():
-    global posX, posY, destX, destY, cltX, cltY, clienteRecogido, clienteARecoger, idLocalizacion
+    global posX, posY, destX, destY, cltX, cltY, clienteRecogido, clienteARecoger, idLocalizacion, irBase
 
     try:
         while True:
@@ -292,31 +300,45 @@ def manejarMovimientos():
                 #printDebug("Iteración manejar movimientos.")
                 #printDebug(f"{clienteRecogido}, {cltX}, {cltY}")
                 # Mover hacia el cliente
-                if not clienteRecogido and cltX is not None and cltY is not None:
-                    while (int(posX) != int(cltX) or int(posY) != int(cltY)):  # Continua moviéndose hasta alcanzar el cliente
-                        #printDebug(f"Posición actual: {posX}, {posY} Y CLIENTE EN {cltX}, {cltY}")
-                        x, y = calcularMovimientos(posX, posY, cltX, cltY)
+                if irBase:
+                    while (int(posX) != 1 or int(posY) != 1):
+                        if not irBase:
+                            break
+                        x, y = calcularMovimientos(posX, posY, 1, 1)
                         mover(x, y)
-                        time.sleep(1)  # Esperar un segundo entre movimientos
-                    clienteRecogido = True
-                    printInfo("Cliente recogido.")
-                    if clienteRecogido:
-                        publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_RECOGIDO][{clienteARecoger}][{idLocalizacion}]", TOPIC_TAXIS, BROKER_ADDR)
-                    else: #TODO: NUNCA SE VA A EJECUTAR??'
-                        publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_RECOGIDO][{None}][{None}]", TOPIC_TAXIS, BROKER_ADDR)
+                        time.sleep(1)
+                else:
+                    if not clienteRecogido and cltX is not None and cltY is not None:
+                        while (int(posX) != int(cltX) or int(posY) != int(cltY)):
+                            if irBase or not estadoSensores:
+                                break
+                            x, y = calcularMovimientos(posX, posY, cltX, cltY)
+                            mover(x, y)
+                            time.sleep(1)  # Esperar un segundo entre movimientos
+                
+                        if not irBase and estadoSensores:
+                            clienteRecogido = True
+                            printInfo("Cliente recogido.")
+                            if clienteRecogido:
+                                publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_RECOGIDO][{clienteARecoger}][{idLocalizacion}]", TOPIC_TAXIS, BROKER_ADDR)
+                            else: #TODO: NUNCA SE VA A EJECUTAR??'
+                                publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_RECOGIDO][{None}][{None}]", TOPIC_TAXIS, BROKER_ADDR)
 
-                # Mover hacia el destino del cliente
-                elif clienteRecogido and destX is not None and destY is not None:
-                    while (int(posX) != int(destX) or int(posY) != int(destY)):
-                        #printDebug(f"Posición actual: {posX}, {posY} Y DESTINO EN {destX}, {destY}")
-                        x, y = calcularMovimientos(posX, posY, destX, destY)
-                        mover(x, y)
-                        time.sleep(1)  # Esperar un segundo entre movimientos
-                    printInfo("Destino alcanzado.")
-                    publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_EN_DESTINO][{clienteARecoger}][{x},{y}][{idLocalizacion}]", TOPIC_TAXIS, BROKER_ADDR)
-                    clienteRecogido = False
-                    clienteARecoger = None
-                    destX, destY, cltX, cltY = None, None, None, None
+                    # Mover hacia el destino del cliente
+                    elif clienteRecogido and destX is not None and destY is not None:
+                        while (int(posX) != int(destX) or int(posY) != int(destY)):
+                            if not estadoSensores:
+                                break
+                            x, y = calcularMovimientos(posX, posY, destX, destY)
+                            mover(x, y)
+                            time.sleep(1)  # Esperar un segundo entre movimientos
+                
+                        if estadoSensores:
+                            printInfo("Destino alcanzado.")
+                            publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_EN_DESTINO][{clienteARecoger}][{x},{y}][{idLocalizacion}]", TOPIC_TAXIS, BROKER_ADDR)
+                            clienteRecogido = False
+                            clienteARecoger = None
+                            destX, destY, cltX, cltY = None, None, None, None
 
             time.sleep(1)  # Control de la tasa del bucle principal
     except Exception as e:
