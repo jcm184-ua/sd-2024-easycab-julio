@@ -2,11 +2,10 @@ import sys
 import time
 import json
 import re
-import sqlite3
-from sqlite3 import OperationalError
 import socket
 import threading
 from kafka import KafkaConsumer, KafkaProducer
+import mariadb
 
 sys.path.append('../../shared')
 from EC_Shared import *
@@ -15,12 +14,17 @@ from EC_Map import iniciarMapa
 
 DATABASE = './resources/database.db'
 
-HOST = "" # Simbólico, nos permite escuchar en todas las interfaces de red
+HOST = '' # Simbólico, nos permite escuchar en todas las interfaces de red
 LISTEN_PORT = None
 THIS_ADDR = None
 BROKER_IP = None
 BROKER_PORT = None
 BROKER_ADDR = None
+DATABASE_USER = 'ec_central'
+DATABASE_PASSWORD = 'sd2024_password'
+DATABASE_IP = '127.0.0.1'
+DATABASE_PORT = 3306
+DATABASE = 'easycab'
 
 taxisConectados = [] # [1, 2, 3, 5]
 taxisLibres = [] # [2, 3]
@@ -58,12 +62,22 @@ def leerConfiguracionMapa():
                     #printDebug(f"Cargada localización {item['Id']} con coordenadas ({item['POS']}).")
             printInfo("Mapa cargado con éxito desde fichero.")
     except IOError as error:
-        printInfo("FATAL: No se ha podido abrir el fichero.")
+        printFatal("No se ha podido abrir el fichero.")
         sys.exit()
 
 def leerBBDD():
-    conexionBBDD = sqlite3.connect(DATABASE)
-    cursor = conexionBBDD.cursor()
+    try:
+        conexion = mariadb.connect(
+            user=DATABASE_USER,
+            password=DATABASE_PASSWORD,
+            host=DATABASE_IP,
+            port=DATABASE_PORT,
+            database=DATABASE
+    )
+    except mariadb.Error as e:
+        printError(f"Excepción producida al conectar a la base de datos: {e}.")
+        sys.exit(1)
+    cursor = conexion.cursor()
 
     cursor.execute("SELECT id, posicion FROM taxis")
     taxis = cursor.fetchall()
@@ -79,17 +93,22 @@ def leerBBDD():
         #printInfo(f"Cargado cliente {cliente[0]} con posición {cliente[1]}.")
     printInfo(f"Ubiación clientes cargada desde BBDD.")
 
-    conexionBBDD.close()
+    conexion.close()
 
 def ejecutarSentenciaBBDD(sentencia):
-    printInfo(f"Ejecutando sentencia en la base de datos: '{sentencia}'.")
     try:
-        conexionBBDD = sqlite3.connect(DATABASE)
-        cursor = conexionBBDD.cursor()
+        conexion = mariadb.connect(
+            user=DATABASE_USER,
+            password=DATABASE_PASSWORD,
+            host=DATABASE_IP,
+            port=DATABASE_PORT,
+            database=DATABASE
+        )
+        cursor = conexion.cursor()
         cursor.execute(sentencia)
         resultado = cursor.fetchall()
-        conexionBBDD.commit()
-        conexionBBDD.close()
+        conexion.commit()
+        conexion.close()
         return resultado
     except Exception as a:
         printError(a)
@@ -97,8 +116,14 @@ def ejecutarSentenciaBBDD(sentencia):
 
 def comprobarTaxi(idTaxi):
     try:
-        conexionBBDD = sqlite3.connect(DATABASE)
-        cursor = conexionBBDD.cursor()
+        conexion = mariadb.connect(
+            user=DATABASE_USER,
+            password=DATABASE_PASSWORD,
+            host=DATABASE_IP,
+            port=DATABASE_PORT,
+            database=DATABASE
+    )
+        cursor = conexion.cursor()
 
         cursor.execute("SELECT id FROM taxis WHERE id = ?", (idTaxi,))
         if cursor.fetchone() == None:
@@ -110,8 +135,8 @@ def comprobarTaxi(idTaxi):
                 return False
             else:
                 printInfo(f"Taxi {idTaxi} existe y no está conectado.")
-            return True
-    except sqlite3.OperationalError as msg:
+                return True
+    except Exception as msg:
         printError(msg)
         return False
 
@@ -300,14 +325,14 @@ def gestionarTaxi(conexion, direccion):
             publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{cliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR)
             ejecutarSentenciaBBDD(f"UPDATE taxis SET cliente = NULL WHERE id = {idTaxi}")
             ejecutarSentenciaBBDD(f"UPDATE taxis SET destino = NULL WHERE id = {idTaxi}")
-        
+
         mapa.deactivateTaxi(idTaxi)
         ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'desconectado' WHERE id = {idTaxi}")
-        
+
         taxiBBDD = ejecutarSentenciaBBDD(f"SELECT * FROM taxis WHERE id = {idTaxi}")
 
         mapa.print()
-        
+
     else:
         printInfo(f"Taxi con conexion {conexion} y {direccion} no autorizado. Desconectando...")
         conexion.close()

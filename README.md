@@ -1,5 +1,26 @@
 # Información del diseño de la solución
 
+## Guía de despliegue:
+Estando en el directorio raíz:
+
+### Construcción de los contenedores
+- docker build -f core/central/Dockerfile -t ec_central .
+- docker build -f customers/Dockerfile -t ec_customer .
+- docker build -f taxis/digital-engine/Dockerfile -t ec_de .
+- docker build -f taxis/sensors/Dockerfile -t ec_sensor .
+
+alternativamente:
+
+- docker build -f core/central/Dockerfile -t ec_central . && docker build -f customers/Dockerfile -t ec_customer . && docker build -f taxis/digital-engine/Dockerfile -t ec_de . && docker build -f taxis/sensors/Dockerfile -t ec_sensor .
+
+### Arranque de la solución
+- docker compose -f core/database/compose.yml up
+- docker compose -f core/broker/compose.yml up
+- docker run --network host ec_central
+- docker run --network host ec_de
+- docker run --network host ec_sensor
+- docker run --network host ec_customer
+
 ## Jerarquía de archivos:
 
 ```

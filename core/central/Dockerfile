@@ -1,10 +1,9 @@
-FROM python:3
+FROM python:3.11.10-bookworm
 
 WORKDIR /usr/src/app
 
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+COPY core/central/ /usr/src/app/
+COPY shared/ /usr/src/app/
+RUN pip install --no-cache-dir -r /usr/src/app/requirements.txt
 
-COPY . .
-
-CMD [ "python", "./EC_Central.py", "20100", "127.0.0.1", "20000"]
+ENTRYPOINT [ "python", "./EC_Central.py"]
