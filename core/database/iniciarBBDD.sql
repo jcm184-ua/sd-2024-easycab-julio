@@ -1,6 +1,8 @@
 USE easycab;
 DROP TABLE IF EXISTS taxis;
 DROP TABLE IF EXISTS clientes;
+DROP USER IF EXISTS 'ec_central'@'';
+
 CREATE TABLE IF NOT EXISTS taxis (
     id VARCHAR(255) PRIMARY KEY,
     estado VARCHAR(255) NOT NULL default "desconectado" CHECK(estado = "desconectado" or estado = "esperando" or estado ="enCamino" or estado = "servicio"),
@@ -25,5 +27,7 @@ INSERT INTO clientes (id, posicion) VALUES ("c", "18,15");
 INSERT INTO clientes (id, posicion) VALUES ("d", "3,5");
 INSERT INTO clientes (id, posicion) VALUES ("e", "7,8");
 INSERT INTO clientes (id, posicion) VALUES ("f", " 13, 14");
+
+CREATE USER 'ec_central'@'%' IDENTIFIED BY 'sd2024_central';
 GRANT ALL PRIVILEGES ON easycab.* TO 'ec_central'@'%';
 FLUSH PRIVILEGES;
