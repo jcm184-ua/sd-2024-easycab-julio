@@ -7,6 +7,8 @@ from sqlite3 import OperationalError
 import socket
 import threading
 from kafka import KafkaConsumer, KafkaProducer
+from flask import Flask
+from flask_cors import CORS
 
 sys.path.append('../../shared')
 from EC_Shared import *
@@ -26,6 +28,9 @@ taxisConectados = [] # [1, 2, 3, 5]
 taxisLibres = [] # [2, 3]
 mapa = Map()
 irBase = False
+
+app = Flask(__name__)
+CORS(app)
 
 def comprobarArgumentos(argumentos):
     if len(argumentos) != 4:
@@ -419,6 +424,11 @@ def inputBase():
             input("Presiona Enter para cancelar el envío a base.")
             irBase = False
 
+### API
+@app.route('/estadoActual-mapa', methods=['GET'])
+def estadoActual():
+    return mapa.exportJson()
+
 def main():
     comprobarArgumentos(sys.argv)
     asignarConstantes(sys.argv)
@@ -443,6 +453,13 @@ def main():
     hiloBase = threading.Thread(target=inputBase)
     hiloBase.start()
 
+    ##hiloApi = threading.Thread(target=app.run, kwargs={'debug': True})
+    ##hiloApi.start()
 
 if __name__ == "__main__":
+    # Ejecuta el servidor Flask en un hilo separado
+    hiloApi = threading.Thread(target=app.run, kwargs={'debug': True, 'use_reloader': False})
+    hiloApi.start()
+
+    # Llama al resto de tu lógica principal
     main()
