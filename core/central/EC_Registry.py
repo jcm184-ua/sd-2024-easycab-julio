@@ -4,7 +4,7 @@ from DB_CONNECTION import connDB, init_db
 
 app = Flask(__name__)
 
-@app.route("/register", methods=["PUT"])
+@app.route("/registrar", methods=["PUT"])
 def registrarTaxi():
     """
     Registra un taxi en el sistema y genera un token.
@@ -18,7 +18,7 @@ def registrarTaxi():
     with connDB() as conn:
         cursor = conn.execute("SELECT * FROM taxis WHERE id = ?", (taxi_id,))
         if cursor.fetchone():
-            return jsonify({"message": f"Taxi {taxi_id} ya está registrado"}), 409
+            return jsonify({"error": f"Taxi {taxi_id} ya está registrado"}), 409
 
         # Generar un token único para el taxi
         token = secrets.token_hex(16)

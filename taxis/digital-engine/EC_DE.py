@@ -7,6 +7,8 @@ from kafka import KafkaProducer, KafkaConsumer
 import time
 import os
 
+import requests
+
 sys.path.append('../../shared')
 from EC_Shared import *
 from EC_Map import Map
@@ -23,6 +25,8 @@ HOST = "" # Simbólico, nos permite escuchar en todas las interfaces de red
 LISTEN_PORT = None
 THIS_ADDR = None
 ID = None
+TOKEN = None
+API_URL = "http://localhost:5000"
 
 sensoresConectados = 0
 sensoresOk = 0
@@ -345,10 +349,7 @@ def manejarMovimientos():
         printError(f"Excepción {type(e)} inesperada en manejarMovimientos(): {e}")
 
 
-def main():
-    comprobarArgumentos(sys.argv)
-    asignarConstantes(sys.argv)
-
+def autenticarEnCentral():
     hiloEstado = threading.Thread(target=gestionarEstado)
     hiloEstado.start()
 
@@ -361,8 +362,76 @@ def main():
     hiloBroker = threading.Thread(target=gestionarBroker)
     hiloBroker.start()
 
-    # cuando reciba una solicitud de servicio moverse hacia alli con mover(origenx, origeny, destinoX, destinoY)
-    # cuando tengas el mapa puedes diseñar la función moverse que vaya devolviendo los movimientos que te lleven a una posicion
+def registrarTaxi():
+    global TOKEN  # Indicamos que TOKEN es una variable global
+    try:
+        print("Intentando registrar el taxi...")
+
+        # Datos a enviar al endpoint
+        payload = {"id": ID}
+
+        # Llamada al endpoint de registro
+        response = requests.put(f"{API_URL}/registrar", json=payload)
+
+        # Si la respuesta tiene un código de éxito
+        if response.status_code == 201:
+            data = response.json()
+            TOKEN = data["token"]  # Guardar el token en la constante global
+            print(f"Taxi registrado exitosamente. Token recibido: {TOKEN}")
+        else:
+            # Manejo de errores
+            error_message = response.json().get("error", response.text)
+            print(f"Error al registrar el taxi: {error_message}")
+    except requests.RequestException as e:
+        print(f"Error de conexión al API: {e}")
+
+def darDeBaja():
+    global TOKEN  # Indicamos que TOKEN es una variable global
+    try:
+        print("Intentando dar de baja el registrar el taxi...")
+
+        # Llamada al endpoint de registro
+        response = requests.delete(f"{API_URL}/borrarTaxi/{ID}")
+
+        # Si la respuesta tiene un código de éxito
+        if response.status_code == 200:
+            TOKEN = None
+            print(f"Taxi eliminado exitosamente.")
+        else:
+            # Manejo de errores
+            error_message = response.json().get("error", response.text)
+            print(f"Error al registrar el taxi: {error_message}")
+    except requests.RequestException as e:
+        print(f"Error de conexión al API: {e}")
+
+def main():
+    while True:
+        print(f"=== Menú de Taxi {ID}===")
+        print(f"TOKEN: {TOKEN}")
+        print("Seleccione una opción:")
+        print("1. Registrar")
+        print("2. Dar de Baja")
+        print("3. Autenticar")
+        print("4. Salir")
+        opcion = input("Opción: ")
+
+        if opcion == "1":
+            print("Registrando Taxi...")
+            registrarTaxi() 
+        elif opcion == "2":
+            print("Dando de Baja Taxi...")
+            darDeBaja()
+        elif opcion == "3":
+            print("Autenticando Taxi...")
+            autenticarEnCentral()
+        elif opcion == "4":
+            print("Saliendo...")
+        else:
+            print("Opción no válida. Intente de nuevo.")
+            main()
 
 if __name__ == "__main__":
+    comprobarArgumentos(sys.argv)
+    asignarConstantes(sys.argv)
+
     main()
