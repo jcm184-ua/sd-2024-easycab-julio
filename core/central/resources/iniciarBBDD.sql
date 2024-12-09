@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS taxis (
     sensores TEXT NOT NULL default "KO" CHECK(sensores = "OK" or sensores = "KO"),
     posicion TEXT NOT NULL default "-,-",
     cliente TEXT default NULL CHECK(cliente IS NULL or cliente = "a" or cliente = "b" or cliente = "c" or cliente = "d" or cliente = "e" or cliente = "f"),
-    destino TEXT default NULL CHECK(destino IS NULL or destino = "A" or destino = "B" or destino = "C" or destino = "D" or destino = "E" or destino = "F")
+    destino TEXT default NULL CHECK(destino IS NULL or destino = "A" or destino = "B" or destino = "C" or destino = "D" or destino = "E" or destino = "F"),
+    token TEXT
 );
 
 CREATE TABLE IF NOT EXISTS clientes (
