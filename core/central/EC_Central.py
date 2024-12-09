@@ -152,13 +152,15 @@ def dbToJSON():
         # Cerrar la conexión a la base de datos
         conn.close()
 
-def comprobarTaxi(idTaxi):
+def comprobarTaxi(idTaxi, tokenTaxi):
     try:
         conexionBBDD = sqlite3.connect(DATABASE)
         cursor = conexionBBDD.cursor()
 
-        cursor.execute("SELECT id FROM taxis WHERE id = ?", (idTaxi,))
-        if cursor.fetchone() == None:
+        cursor.execute("SELECT token FROM taxis WHERE id = ?", (idTaxi,))
+        resultado = cursor.fetchone()
+
+        if resultado is None:
             printInfo(f"Taxi {idTaxi} no encontrado en la base de datos.")
             return False
         else:
@@ -166,8 +168,12 @@ def comprobarTaxi(idTaxi):
                 printInfo(f"Taxi {idTaxi} existe y ya está conectado.")
                 return False
             else:
-                printInfo(f"Taxi {idTaxi} existe y no está conectado.")
-            return True
+                if tokenTaxi == resultado[0]:
+                    printInfo(f"Taxi {idTaxi} autenticado con éxito.")
+                    return True
+                else:
+                    printError(f"Token incorrecto para el taxi {idTaxi}.")
+                    return False
     except sqlite3.OperationalError as msg:
         printError(msg)
         return False
@@ -306,7 +312,8 @@ def autenticarTaxi(conexion, direccion):
 
     camposMensaje = re.findall('[^\[\]]+', mensaje)
     idTaxi = camposMensaje[0].split("->")[0][6:]
-    if comprobarTaxi(idTaxi):
+    tokenTaxi = camposMensaje[6]
+    if comprobarTaxi(idTaxi, tokenTaxi):
         ejecutarSentenciaBBDD(f"UPDATE taxis SET sensores = '{camposMensaje[2]}' WHERE id = {idTaxi}")
         if camposMensaje[3] != "None,None":
             printInfo(f"El taxi {idTaxi} tenía posición, por lo tanto nosotros habíamos caído.")
@@ -316,6 +323,7 @@ def autenticarTaxi(conexion, direccion):
             if camposMensaje[4] != None:
                 mapa.activateTaxi(idTaxi)
                 if camposMensaje[5] == "True":
+                    ## El cliente ha sido recogido
                     ejecutarSentenciaBBDD(f"UPDATE clientes SET posicion = '{camposMensaje[3].split(',')[0]},{camposMensaje[3].split(',')[1]}' WHERE id = {camposMensaje[4]}")
                     mapa.setPosition(f"cliente_{camposMensaje[4]}", camposMensaje[3].split(',')[0], camposMensaje[3].split(',')[1])
                     ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'servicio' WHERE id = {idTaxi}")
@@ -447,8 +455,8 @@ def main():
     hiloLoginTaxis = threading.Thread(target=gestionarLoginTaxis)
     hiloLoginTaxis.start()
 
-    hiloMapa = threading.Thread(target=iniciarMapa, args=(mapa, BROKER_ADDR,))
-    hiloMapa.start()
+    #hiloMapa = threading.Thread(target=iniciarMapa, args=(mapa, BROKER_ADDR,))
+    #hiloMapa.start()
 
     hiloBase = threading.Thread(target=inputBase)
     hiloBase.start()
@@ -458,8 +466,8 @@ def main():
 
 if __name__ == "__main__":
     # Ejecuta el servidor Flask en un hilo separado
-    hiloApi = threading.Thread(target=app.run, kwargs={'debug': True, 'use_reloader': False})
-    hiloApi.start()
+    #hiloApi = threading.Thread(target=app.run, kwargs={'debug': True, 'use_reloader': False})
+    #hiloApi.start()
 
     # Llama al resto de tu lógica principal
     main()

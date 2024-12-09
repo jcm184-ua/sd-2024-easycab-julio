@@ -26,7 +26,7 @@ LISTEN_PORT = None
 THIS_ADDR = None
 ID = None
 TOKEN = None
-API_URL = "http://localhost:5000"
+API_URL = "http://localhost:5001"
 
 sensoresConectados = 0
 sensoresOk = 0
@@ -158,9 +158,9 @@ def gestionarConexionCentral():
             socket = abrirSocketCliente(CENTRAL_ADDR)
             printInfo("Intentando autenticar en central.")
             if estadoSensores:
-                enviarMensajeCliente(socket, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST][OK][{posX},{posY}][{clienteARecoger}][{clienteRecogido}]")
+                enviarMensajeCliente(socket, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST][OK][{posX},{posY}][{clienteARecoger}][{clienteRecogido}][{TOKEN}]")
             else:
-                enviarMensajeCliente(socket, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST][KO][{posX},{posY}][{clienteARecoger}][{clienteRecogido}]")
+                enviarMensajeCliente(socket, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST][KO][{posX},{posY}][{clienteARecoger}][{clienteRecogido}][{TOKEN}]")
             
             #TODO: ¿Esto es necesario?
             time.sleep(0.2)
