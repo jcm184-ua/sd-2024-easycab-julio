@@ -90,6 +90,7 @@ def gestionarEstado():
 def gestionarSocketSensores():
     global sensoresConectados
 
+    
     socketEscucha = abrirSocketServidor(THIS_ADDR)
     socketEscucha.listen()
 
@@ -191,9 +192,9 @@ def gestionarConexionCentral():
                             destX, destY = obtenerPosicion(camposMensaje[4], False)
                         
                     elif mensaje == f"[EC_Central->EC_DE_{ID}][NOT_AUTHORIZED]":
-                        printError("ENGINE: Autentificación incorrecta. Finalizando ejecución.")
-                        os._exit(1)
-                        #exit()
+                        socket.close()
+                        raise Exception("Autentificación incorrecta.")
+                        break
                     else:
                         printError(f"ENGINE: MENSAJE DESCONOCIDO: {mensaje}")
         except BrokenPipeError as error:
@@ -203,10 +204,10 @@ def gestionarConexionCentral():
         except ConnectionResetError as error:
             printError("Algo ha ocurrido en EC_Central.")
         except Exception as e:
-            printWarning(f"Excepción {type(e)} inesperada en gestionarConexionCentral(): {e}.")
+            printWarning(f"Excepción {type(e)} inesperada en gestionarConexionCentral(): {e}")
+            break
         finally:
             time.sleep(3)
-            printInfo(f"Reintentando conexión...")
             
         #Una vez autorizados y con posición, esperar a que se nos indique un servicio
 
@@ -227,10 +228,11 @@ def gestionarBroker():
                 mapa.loadActiveTaxis(camposMensaje[2])
                 mapa.print()
             elif camposMensaje[0] == f"EC_Central->BASE":
-                if camposMensaje[1] == "SI":
-                    irBase = True
-                elif camposMensaje[1] == "NO":
-                    irBase = False
+                if camposMensaje[1] == "ALL" or camposMensaje[1] == ID:
+                    if camposMensaje[2] == "SI":
+                        irBase = True
+                    elif camposMensaje[2] == "NO":
+                        irBase = False
             elif camposMensaje[0] == f"EC_Central->EC_DE_{ID}":
                 if camposMensaje[1] == "SERVICIO":
                     clienteARecoger = camposMensaje[2].split("->")[0]
@@ -262,39 +264,48 @@ def obtenerPosicion(id, cliente):
 import time
 
 def mover(x, y):
-    global posX, posY, clienteRecogido, clienteARecoger, idLocalizacion, estadoSensores
+    try:
 
-    if (x > 20) or (x < 0) or (y > 20) or (y < 0):
-        printError("Movimiento demasiado grande")
-    elif (x == posX) and (y == posY):
-        pass
-    elif not estadoSensores:
-        printError("Sensores no operativos. No se puede realizar el movimiento")
-    else:
-        posX = x
-        posY = y
+        global posX, posY, clienteRecogido, clienteARecoger, idLocalizacion, estadoSensores
 
-        printInfo(f"Moviendo a dirección ({x},{y})")        
-        """publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][MOVIMIENTO][{x},{y}][{clienteARecoger}]", TOPIC_TAXIS, BROKER_ADDR)"""
-
-        if clienteRecogido:
-            publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][MOVIMIENTO][{x},{y}][{clienteARecoger}][{idLocalizacion}]", TOPIC_TAXIS, BROKER_ADDR)
+        if (x > 20) or (x < 0) or (y > 20) or (y < 0):
+            printError("Movimiento demasiado grande")
+        elif (x == posX) and (y == posY):
+            pass
+        elif not estadoSensores:
+            printError("Sensores no operativos. No se puede realizar el movimiento")
         else:
-            publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][MOVIMIENTO][{x},{y}][{None}][{None}]", TOPIC_TAXIS, BROKER_ADDR)
+            posX = x
+            posY = y
+
+            printInfo(f"Moviendo a dirección ({x},{y})")        
+            """publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][MOVIMIENTO][{x},{y}][{clienteARecoger}]", TOPIC_TAXIS, BROKER_ADDR)"""
+
+            if clienteRecogido:
+                publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][MOVIMIENTO][{x},{y}][{clienteARecoger}][{idLocalizacion}]", TOPIC_TAXIS, BROKER_ADDR)
+            else:
+                publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][MOVIMIENTO][{x},{y}][{None}][{None}]", TOPIC_TAXIS, BROKER_ADDR)
+
+    except Exception as e:
+        printError(f"Excepción {type(e)} inesperada en mover(): {e}. Donde las variables globales son posX = {posX}, posY = {posY}, clienteRecogido = {clienteRecogido}, clienteARecoger = {clienteARecoger}, idLocalizacion = {idLocalizacion}, estadoSensores = {estadoSensores}")
 
 def calcularMovimientos(X, Y, destX, destY):
+    try :
 
-    delta_x = int(destX) - int(posX)
-    delta_y = int(destY) - int(posY)
+        delta_x = int(destX) - int(posX)
+        delta_y = int(destY) - int(posY)
 
-    step_x = 1 if delta_x > 0 else -1 if delta_x < 0 else 0
-    step_y = 1 if delta_y > 0 else -1 if delta_y < 0 else 0
+        step_x = 1 if delta_x > 0 else -1 if delta_x < 0 else 0
+        step_y = 1 if delta_y > 0 else -1 if delta_y < 0 else 0
 
-    X = int(X) + step_x
-    Y = int(Y) + step_y
+        X = int(X) + step_x
+        Y = int(Y) + step_y
 
-    return X, Y
+        return X, Y
 
+    except Exception as e:
+        raise Exception(f"Error al calcular los movimientos: {e}")
+    
 def manejarMovimientos():
     global posX, posY, destX, destY, cltX, cltY, clienteRecogido, clienteARecoger, idLocalizacion, irBase
 
@@ -305,56 +316,59 @@ def manejarMovimientos():
                 #printDebug(f"{clienteRecogido}, {cltX}, {cltY}")
                 # Mover hacia el cliente
                 if irBase:
-                    while (int(posX) != 1 or int(posY) != 1):
-                        if not irBase:
-                            break
-                        x, y = calcularMovimientos(posX, posY, 1, 1)
-                        mover(x, y)
-                        time.sleep(1)
+                    try:
+                        while (int(posX) != 1 or int(posY) != 1):
+                            if not irBase:
+                                break
+                            x, y = calcularMovimientos(posX, posY, 1, 1)
+                            mover(x, y)
+                            time.sleep(1)
+                    except Exception as e:
+                        raise Exception(f"Error al mover hacia la base. {e}")
                 else:
                     if not clienteRecogido and cltX is not None and cltY is not None:
-                        while (int(posX) != int(cltX) or int(posY) != int(cltY)):
-                            if irBase or not estadoSensores:
-                                break
-                            x, y = calcularMovimientos(posX, posY, cltX, cltY)
-                            mover(x, y)
-                            time.sleep(1)  # Esperar un segundo entre movimientos
-                
-                        if not irBase and estadoSensores:
-                            clienteRecogido = True
-                            printInfo("Cliente recogido.")
-                            if clienteRecogido:
-                                publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_RECOGIDO][{clienteARecoger}][{idLocalizacion}]", TOPIC_TAXIS, BROKER_ADDR)
-                            else: #TODO: NUNCA SE VA A EJECUTAR??'
-                                publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_RECOGIDO][{None}][{None}]", TOPIC_TAXIS, BROKER_ADDR)
-
+                        try:
+                            while (int(posX) != int(cltX) or int(posY) != int(cltY)):
+                                if irBase or not estadoSensores:
+                                    break
+                                x, y = calcularMovimientos(posX, posY, cltX, cltY)
+                                mover(x, y)
+                                time.sleep(1)  # Esperar un segundo entre movimientos
+                            if not irBase and estadoSensores:
+                                clienteRecogido = True
+                                printInfo("Cliente recogido.")
+                                if clienteRecogido:
+                                    publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_RECOGIDO][{clienteARecoger}][{idLocalizacion}]", TOPIC_TAXIS, BROKER_ADDR)
+                                else: #TODO: NUNCA SE VA A EJECUTAR??'
+                                    publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_RECOGIDO][{None}][{None}]", TOPIC_TAXIS, BROKER_ADDR)
+                        except Exception as e:
+                            raise Exception(f"PARTE 2: Error al mover hacia el cliente. {e}")
                     # Mover hacia el destino del cliente
                     elif clienteRecogido and destX is not None and destY is not None:
-                        while (int(posX) != int(destX) or int(posY) != int(destY)):
-                            if not estadoSensores:
-                                break
-                            x, y = calcularMovimientos(posX, posY, destX, destY)
-                            mover(x, y)
-                            time.sleep(1)  # Esperar un segundo entre movimientos
-                
-                        if estadoSensores:
-                            printInfo("Destino alcanzado.")
-                            publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_EN_DESTINO][{clienteARecoger}][{x},{y}][{idLocalizacion}]", TOPIC_TAXIS, BROKER_ADDR)
-                            clienteRecogido = False
-                            clienteARecoger = None
-                            destX, destY, cltX, cltY = None, None, None, None
-
+                        try:
+                            while (int(posX) != int(destX) or int(posY) != int(destY)):
+                                if not estadoSensores:
+                                    break
+                                x, y = calcularMovimientos(posX, posY, destX, destY)
+                                mover(x, y)
+                                time.sleep(1)  # Esperar un segundo entre movimientos
+                    
+                            if estadoSensores:
+                                printInfo("Destino alcanzado.")
+                                publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_EN_DESTINO][{clienteARecoger}][{x},{y}][{idLocalizacion}]", TOPIC_TAXIS, BROKER_ADDR)
+                                clienteRecogido = False
+                                clienteARecoger = None
+                                destX, destY, cltX, cltY = None, None, None, None
+                        except Exception as e:
+                            raise Exception(f"Error al mover hacia el destino. {e}")
+                        
             time.sleep(1)  # Control de la tasa del bucle principal
     except Exception as e:
         printError(f"Excepción {type(e)} inesperada en manejarMovimientos(): {e}")
 
-
 def autenticarEnCentral():
     hiloEstado = threading.Thread(target=gestionarEstado)
     hiloEstado.start()
-
-    hiloSocketSensores = threading.Thread(target=gestionarSocketSensores)
-    hiloSocketSensores.start()
 
     hiloSocketCentral = threading.Thread(target=gestionarConexionCentral)
     hiloSocketCentral.start()
@@ -428,10 +442,13 @@ def main():
             print("Saliendo...")
         else:
             print("Opción no válida. Intente de nuevo.")
-            main()
 
 if __name__ == "__main__":
     comprobarArgumentos(sys.argv)
     asignarConstantes(sys.argv)
+
+
+    hiloSocketSensores = threading.Thread(target=gestionarSocketSensores)
+    hiloSocketSensores.start()
 
     main()

@@ -26,6 +26,7 @@ BROKER_ADDR = None
 
 taxisConectados = [] # [1, 2, 3, 5]
 taxisLibres = [] # [2, 3]
+taxisEnBase = []
 mapa = Map()
 irBase = False
 
@@ -396,42 +397,68 @@ def gestionarLoginTaxis():
         hiloTaxi = threading.Thread(target=gestionarTaxi, args=(conexion, direccion))
         hiloTaxi.start()
 
-def dirijirABase():
+def dirigirABaseATodos():
     global irBase
 
     estado_anterior = None 
 
     while True:
-        if irBase != estado_anterior: 
+        if irBase != estado_anterior:  
             if irBase:
                 printInfo("Enviando todos los taxis a base.")
-                publicarMensajeEnTopic(f"[EC_Central->BASE][SI]", TOPIC_TAXIS, BROKER_ADDR)
+                publicarMensajeEnTopic(f"[EC_Central->BASE][ALL][SI]", TOPIC_TAXIS, BROKER_ADDR)
                 publicarMensajeEnTopic(f"[EC_Central] Enviando todos los taxis a base", TOPIC_ERRORES_MAPA, BROKER_ADDR)
             else:
                 printInfo("Cancelando envío a base.")
-                publicarMensajeEnTopic(f"[EC_Central->BASE][NO]", TOPIC_TAXIS, BROKER_ADDR)
+                publicarMensajeEnTopic(f"[EC_Central->BASE][ALL][NO]", TOPIC_TAXIS, BROKER_ADDR)
                 publicarMensajeEnTopic(f"[EC_Central] Los taxis pueden salir de base y continuar su servicio", TOPIC_ERRORES_MAPA, BROKER_ADDR)
 
             # Actualizamos el estado anterior
             estado_anterior = irBase
-
-        
-
         time.sleep(1)
+
+def dirigirTaxiABase(idTaxi):
+    try:
+        if idTaxi not in taxisConectados:
+            printError(f"Taxi {idTaxi} no está conectado.")
+            return
+        
+        if idTaxi in taxisEnBase:
+            printInfo(f"Cancelando envio a la base del taxi {idTaxi}.")
+            taxisEnBase.remove(idTaxi)
+            publicarMensajeEnTopic(f"[EC_Central->BASE][{idTaxi}][NO]", TOPIC_TAXIS, BROKER_ADDR)
+            publicarMensajeEnTopic(f"[EC_Central] Los taxis pueden salir de base y continuar su servicio", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+        else:
+            printInfo(f"Enviando taxi {idTaxi} a la base.")
+            taxisEnBase.append(idTaxi)
+            publicarMensajeEnTopic(f"[EC_Central->BASE][{idTaxi}][SI]", TOPIC_TAXIS, BROKER_ADDR)
+            publicarMensajeEnTopic(f"[EC_Central] Enviando taxi {idTaxi} a base", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+    except Exception as e:
+        raise e
+        
 
 def inputBase():
     global irBase
 
-    threading.Thread(target=dirijirABase).start()
+    threading.Thread(target=dirigirABaseATodos).start()
 
     while True:
-        if not irBase:
-            input("Presiona Enter para enviar todos los taxis a base.")
-            irBase = True
-        else:
-            input("Presiona Enter para cancelar el envío a base.")
-            irBase = False
+        user_input = input("Introduce 'ALL' para enviar todos los taxis a base o un ID específico: ").strip()
 
+        if user_input.upper() == "ALL":
+            irBase = not irBase
+            if irBase:
+                printInfo("Se enviarán todos los taxis a la base.")
+            else:
+                printInfo("El envío de taxis a la base ha sido cancelado.")
+        else:
+            taxiId = None
+            try:
+                taxiId = int(user_input)
+                dirigirTaxiABase(taxiId)
+            except Exception as e:
+                printError(f"Error con la ID '{taxiId}': {e}")
+            
 ### API
 @app.route('/estadoActual-mapa', methods=['GET'])
 def estadoActual():
