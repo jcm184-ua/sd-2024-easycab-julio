@@ -34,12 +34,61 @@ body {
   color: #e3e3e3;
 }
 
-.main-container {
-  flex: 1;
-  padding: 70px;
+.map-logs-container {
   display: flex;
-  justify-content: center;
+  justify-content: space-between; /* Añade espacio entre el mapa y los logs */
   align-items: center;
+  flex-direction: row;
+  width: 100%;
+  height: calc(100vh - 160px); /* Ajustar al tamaño del viewport menos el header/footer */
+  padding: 20px; /* Espacio a los lados y alrededor del contenedor */
+  box-sizing: border-box; /* Incluye el padding en las dimensiones totales */
+}
+.Mapa {
+  flex: 2; /* El mapa ocupa más espacio */
+  margin-right: 20px; /* Espacio entre el mapa y los logs */
+}
+
+/* Contenedor de los logs */
+.logs-container {
+  flex: 1;
+  max-width: 400px; /* Limita el ancho de los logs */
+  height: 90%; /* Ajusta la altura al 90% del contenedor */
+  padding: 15px; /* Espaciado interno para el contenedor de logs */
+  background: #272727;
+  border-radius: 10px;
+  overflow-y: auto;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start; /* Alinea los logs desde el inicio */
+  align-items: center;
+}
+
+/* Título en el contenedor de logs */
+.logs-container h2 {
+  margin: 0 0 10px 0;
+  color: #e3e3e3;
+  font-size: 1.5rem;
+  text-align: center;
+}
+
+/* Lista de logs */
+.logs-list {
+  width: 100%;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.logs-list li {
+  margin-bottom: 8px;
+  padding: 8px;
+  background: #1c1c1c;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  color: #fff;
 }
 
 .footer {
@@ -49,6 +98,7 @@ body {
   font-size: 0.9rem;
   color: #ccc;
 }
+
 
 /* Animations */
 @keyframes fadeIn {

@@ -7,3 +7,4 @@ export const getMapa = async () => {
   }
   return response.json();
 };
+
