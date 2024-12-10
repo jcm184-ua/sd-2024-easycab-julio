@@ -19,7 +19,7 @@ const Mapa = () => {
     }
   };
 
-  // Llamada inicial y actualizaciones periódicas
+// Llamada inicial y actualizaciones periódicas
   useEffect(() => {
     console.log('useEffect called');
     fetchMapData();

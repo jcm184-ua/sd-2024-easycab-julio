@@ -9,6 +9,9 @@ import threading
 from kafka import KafkaConsumer, KafkaProducer
 from flask import Flask
 from flask_cors import CORS
+from datetime import datetime
+import os
+
 
 sys.path.append('../../shared')
 from EC_Shared import *
@@ -52,6 +55,43 @@ def asignarConstantes(argumentos):
     global BROKER_ADDR
     BROKER_ADDR = BROKER_IP+":"+str(BROKER_PORT)
     printInfo("Constantes asignadas.")
+
+def obtenerIP(ID):
+    try:
+        conexionBBDD = sqlite3.connect(DATABASE)
+        cursor = conexionBBDD.cursor()
+
+        if ID.isdigit():
+            cursor.execute("SELECT IP FROM taxis WHERE id = ?", (ID,))
+        else:
+            cursor.execute("SELECT IP FROM clientes WHERE id = ?", (ID,))
+
+        resultado = cursor.fetchone()
+        if resultado:
+            return resultado[0]
+        else:
+            printError(f"No se encontró IP para el ID {ID}.")
+            return None
+    except sqlite3.OperationalError as e:
+        printError(f"Error al obtener IP: {e}")
+        return None
+    finally:
+        conexionBBDD.close()
+
+
+def printLog(ID, message):
+    if ID == "ALL":
+        IP = "BROADCAST"
+    else:
+        IP = obtenerIP(ID)
+
+    fecha_actual = datetime.now().strftime("%Y-%m-%d")
+    nombre_archivo = f"log/logs_{fecha_actual}.log"
+    os.makedirs(os.path.dirname(nombre_archivo), exist_ok=True)
+
+    with open(nombre_archivo, "a") as archivo_log:
+        archivo_log.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [{IP}]- {message}\n")
+        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [{IP}]- {message}")
 
 def leerConfiguracionMapa():
     global diccionarioLocalizaciones
@@ -111,7 +151,7 @@ def dbToJSON():
 
     try:
         # Consultar datos de la tabla de taxis
-        cursor.execute("SELECT id, estado, sensores, posicion, cliente, destino FROM taxis")
+        cursor.execute("SELECT id, estado, sensores, posicion, cliente, destino, token FROM taxis")
         taxis = [
             {
                 "id": row[0],
@@ -119,7 +159,8 @@ def dbToJSON():
                 "sensores": row[2],
                 "posicion": row[3],
                 "cliente": row[4],
-                "destino": row[5]
+                "destino": row[5],
+                "token": row[6]
             }
             for row in cursor.fetchall()
         ]
@@ -202,6 +243,7 @@ def gestionarBrokerClientes():
                 printWarning(f"La localización {localizacion} no existe. Cancelando servicio a cliente {idCliente}.")
                 publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{idCliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR)
             else:
+                ejecutarSentenciaBBDD(f"UPDATE clientes SET IP = '{mensaje.key.decode(FORMAT)}' WHERE id = '{idCliente}'")
                 printDebug(f"Estado de los taxis (Conectados, Libres): {taxisConectados}, {taxisLibres}.")
                 if len(taxisLibres) < 1:
                     printWarning(f"No hay taxis disponibles. Cancelando servicio a cliente {idCliente}.")
@@ -217,7 +259,7 @@ def gestionarBrokerClientes():
                     ejecutarSentenciaBBDD(f"UPDATE taxis SET destino = '{localizacion}' WHERE id = {taxiElegido}")
 
                     publicarMensajeEnTopic(f"[EC_DE_{taxiElegido}] Servicio asignado [{idCliente}->{localizacion}]", TOPIC_ERRORES_MAPA, BROKER_ADDR)
-
+                    printLog(taxiElegido, f"Servicio asignado [{idCliente}->{localizacion}]")
         else:
             #printInfo(mensaje)
             #printInfo(mensaje.value.decode(FORMAT))
@@ -255,6 +297,7 @@ def gestionarBrokerTaxis():
 
                 ejecutarSentenciaBBDD(f"UPDATE taxis SET sensores = '{estado}' WHERE id = {idTaxi}")
                 publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Cambio su estado a: {estado}", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+                printLog(idTaxi, f"Cambio su estado a: {estado}")
 
             elif camposMensaje[1] == "MOVIMIENTO":
                 # ['EC_DigitalEngine-1->EC_Central', '(1,2)']
@@ -280,6 +323,7 @@ def gestionarBrokerTaxis():
                     publicarMensajeEnTopic(f"EC_Central->EC_Customer_{camposMensaje[3]}[RECOGIDO]", TOPIC_CLIENTES, BROKER_ADDR)
                     ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'servicio' WHERE id = {idTaxi}")
                     publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Recogido a su cliente {camposMensaje[3]}", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+                    printLog(idTaxi, f"Recogido a su cliente {camposMensaje[3]}")
                     #actualizarEstadosJSON(True, camposMensaje[3], f"OK. Taxi {idTaxi}", camposMensaje[4])
                     #actualizarEstadosJSON(False, idTaxi, f"OK. Servicio {camposMensaje[3]}", camposMensaje[4]) # TAXI
 
@@ -292,6 +336,7 @@ def gestionarBrokerTaxis():
 
                     mapa.deactivateTaxi(idTaxi)
                     publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Llevado al cliente {camposMensaje[3]} a su destino", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+                    printLog(idTaxi, f"Llevado al cliente {camposMensaje[3]} a su destino")
                     #actualizarEstadosJSON(True, camposMensaje[3], "OK. En destino", camposMensaje[4]) # CLIENTE
                     #actualizarEstadosJSON(False, idTaxi, "OK. Parado") # TAXI
 
@@ -315,6 +360,7 @@ def autenticarTaxi(conexion, direccion):
     idTaxi = camposMensaje[0].split("->")[0][6:]
     tokenTaxi = camposMensaje[6]
     if comprobarTaxi(idTaxi, tokenTaxi):
+        ejecutarSentenciaBBDD(f"UPDATE taxis SET IP = '{direccion[0]}' WHERE id = {idTaxi}")
         ejecutarSentenciaBBDD(f"UPDATE taxis SET sensores = '{camposMensaje[2]}' WHERE id = {idTaxi}")
         if camposMensaje[3] != "None,None":
             printInfo(f"El taxi {idTaxi} tenía posición, por lo tanto nosotros habíamos caído.")
@@ -340,6 +386,7 @@ def autenticarTaxi(conexion, direccion):
         enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]")
 
         publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Autorizado.", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+        printLog(idTaxi, f"Taxi {idTaxi} ha sido autorizado.")
         #actualizarEstadosJSON(False, idTaxi, "OK. Parado") 
         return idTaxi
 
@@ -384,6 +431,7 @@ def gestionarTaxi(conexion, direccion):
         mapa.print()
 
         publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Su conexión ha caido.", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+        printLog(idTaxi, "Su conexión ha caido.")
 
     else:
         printInfo(f"Taxi con conexion {conexion} y {direccion} no autorizado. Desconectando...")
@@ -400,7 +448,7 @@ def gestionarLoginTaxis():
 def dirigirABaseATodos():
     global irBase
 
-    estado_anterior = None 
+    estado_anterior = irBase 
 
     while True:
         if irBase != estado_anterior:  
@@ -408,10 +456,12 @@ def dirigirABaseATodos():
                 printInfo("Enviando todos los taxis a base.")
                 publicarMensajeEnTopic(f"[EC_Central->BASE][ALL][SI]", TOPIC_TAXIS, BROKER_ADDR)
                 publicarMensajeEnTopic(f"[EC_Central] Enviando todos los taxis a base", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+                printLog("ALL", "Enviando todos los taxis a base.")
             else:
                 printInfo("Cancelando envío a base.")
                 publicarMensajeEnTopic(f"[EC_Central->BASE][ALL][NO]", TOPIC_TAXIS, BROKER_ADDR)
                 publicarMensajeEnTopic(f"[EC_Central] Los taxis pueden salir de base y continuar su servicio", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+                printLog("ALL", "Cancelando envío a base.")
 
             # Actualizamos el estado anterior
             estado_anterior = irBase
@@ -428,11 +478,13 @@ def dirigirTaxiABase(idTaxi):
             taxisEnBase.remove(idTaxi)
             publicarMensajeEnTopic(f"[EC_Central->BASE][{idTaxi}][NO]", TOPIC_TAXIS, BROKER_ADDR)
             publicarMensajeEnTopic(f"[EC_Central] Los taxis pueden salir de base y continuar su servicio", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+            printLog(idTaxi, "Cancelando envio a la base.")
         else:
             printInfo(f"Enviando taxi {idTaxi} a la base.")
             taxisEnBase.append(idTaxi)
             publicarMensajeEnTopic(f"[EC_Central->BASE][{idTaxi}][SI]", TOPIC_TAXIS, BROKER_ADDR)
             publicarMensajeEnTopic(f"[EC_Central] Enviando taxi {idTaxi} a base", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+            printLog(idTaxi, "Enviando a la base.")
     except Exception as e:
         raise e
         
@@ -462,7 +514,19 @@ def inputBase():
 ### API
 @app.route('/estadoActual-mapa', methods=['GET'])
 def estadoActual():
-    return mapa.exportJson()
+    return mapa.exportJson()    
+
+@app.route('/logs', methods=['GET'])
+def obtenerLogs():
+    fecha_actual = datetime.now().strftime("%Y-%m-%d")
+    nombre_archivo = f"log/logs_{fecha_actual}.log"
+    
+    if os.path.exists(nombre_archivo):
+        with open(nombre_archivo, "r") as archivo_log:
+            contenido = archivo_log.read()
+        return contenido, 200
+    else:
+        return "No hay logs disponibles para el día de hoy.", 404
 
 def main():
     comprobarArgumentos(sys.argv)
@@ -493,8 +557,8 @@ def main():
 
 if __name__ == "__main__":
     # Ejecuta el servidor Flask en un hilo separado
-    #hiloApi = threading.Thread(target=app.run, kwargs={'debug': True, 'use_reloader': False})
-    #hiloApi.start()
+    hiloApi = threading.Thread(target=app.run, kwargs={'debug': True, 'use_reloader': False})
+    hiloApi.start()
 
     # Llama al resto de tu lógica principal
     main()

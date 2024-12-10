@@ -1,8 +1,47 @@
 import secrets
 from flask import Flask, request, jsonify
 from DB_CONNECTION import connDB, init_db
+import os
+from datetime import datetime
+import sys
+import sqlite3
+
+sys.path.append('../../shared')
+from EC_Shared import *
+DATABASE = './resources/database.db'
 
 app = Flask(__name__)
+
+def obtenerIP(ID):
+    try:
+        conexionBBDD = sqlite3.connect(DATABASE)
+        cursor = conexionBBDD.cursor()
+
+    
+        cursor.execute("SELECT IP FROM taxis WHERE id = ?", (ID,))
+
+        resultado = cursor.fetchone()
+        if resultado:
+            return resultado[0]
+        else:
+            printError(f"No se encontró IP para el ID {ID}.")
+            return None
+    except sqlite3.OperationalError as e:
+        printError(f"Error al obtener IP: {e}")
+        return None
+    finally:
+        conexionBBDD.close()
+
+def printLog(ID, message):
+    IP = obtenerIP(ID)
+
+    fecha_actual = datetime.now().strftime("%Y-%m-%d")
+    nombre_archivo = f"log/logs_{fecha_actual}.log"
+    os.makedirs(os.path.dirname(nombre_archivo), exist_ok=True)
+
+    with open(nombre_archivo, "a") as archivo_log:
+        archivo_log.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [{IP}]- {message}\n")
+        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [{IP}]- {message}")
 
 @app.route("/registrar", methods=["PUT"])
 def registrarTaxi():
@@ -11,6 +50,7 @@ def registrarTaxi():
     """
     data = request.get_json()
     taxi_id = data.get("id")
+    ip = request.remote_addr 
 
     if not taxi_id:
         return jsonify({"error": "ID del taxi es requerido"}), 400
@@ -23,9 +63,11 @@ def registrarTaxi():
         # Generar un token único para el taxi
         token = secrets.token_hex(16)
 
-        conn.execute("INSERT INTO taxis (id, token) VALUES (?, ?)", 
-                     (taxi_id, token))
+        conn.execute("INSERT INTO taxis (id, token, IP) VALUES (?, ?, ?)", 
+                     (taxi_id, token, ip))
         conn.commit()
+
+        printLog(taxi_id, f"Taxi {taxi_id} se ha registrado")
 
         return jsonify({"message": f"Registrado", "token": token}), 201
 
@@ -39,8 +81,11 @@ def borrarTaxi(taxi_id):
         if not cursor.fetchone():
             return jsonify({"error": f"Taxi {taxi_id} no está registrado"}), 404
 
+        printLog(taxi_id, f"Taxi {taxi_id} ha sido dado de baja")
+
         conn.execute("DELETE FROM taxis WHERE id = ?", (taxi_id,))
         conn.commit()
+
         return jsonify({"message": f"Eliminado"}), 200
 
 @app.route("/estado/<taxi_id>", methods=["GET"])
