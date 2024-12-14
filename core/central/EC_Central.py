@@ -11,6 +11,7 @@ from flask import Flask
 from flask_cors import CORS
 from datetime import datetime
 import os
+import requests
 
 
 sys.path.append('../../shared')
@@ -32,6 +33,7 @@ taxisLibres = [] # [2, 3]
 taxisEnBase = []
 mapa = Map()
 irBase = False
+climaAdverso = False
 
 app = Flask(__name__)
 CORS(app)
@@ -82,6 +84,8 @@ def obtenerIP(ID):
 def printLog(ID, message):
     if ID == "ALL":
         IP = "BROADCAST"
+    elif ID == "CENTRAL":
+        IP = "CENTRAL"
     else:
         IP = obtenerIP(ID)
 
@@ -451,6 +455,8 @@ def dirigirABaseATodos():
     estado_anterior = irBase 
 
     while True:
+        if climaAdverso:
+            irBase = True
         if irBase != estado_anterior:  
             if irBase:
                 printInfo("Enviando todos los taxis a base.")
@@ -496,21 +502,55 @@ def inputBase():
 
     while True:
         user_input = input("Introduce 'ALL' para enviar todos los taxis a base o un ID específico: ").strip()
-
-        if user_input.upper() == "ALL":
-            irBase = not irBase
-            if irBase:
-                printInfo("Se enviarán todos los taxis a la base.")
+        
+        if user_input.upper() == "" or not user_input:
+            continue
+        if (not climaAdverso):
+            if user_input.upper() == "ALL":
+                irBase = not irBase
+                if irBase:
+                    printInfo("Se enviarán todos los taxis a la base.")
+                else:
+                    printInfo("El envío de taxis a la base ha sido cancelado.")
             else:
-                printInfo("El envío de taxis a la base ha sido cancelado.")
+                taxiId = None
+                try:
+                    taxiId = int(user_input)
+                    dirigirTaxiABase(taxiId)
+                except Exception as e:
+                    printError(f"Error con la ID '{taxiId}': {e}")
         else:
-            taxiId = None
-            try:
-                taxiId = int(user_input)
-                dirigirTaxiABase(taxiId)
-            except Exception as e:
-                printError(f"Error con la ID '{taxiId}': {e}")
-            
+            printError("No se puede actuar sobre los taxis debido al clima adverso. Todos vuelven a base")
+                
+
+def verificarClima():
+    global climaAdverso
+    IP = "http://localhost:5002/consultarClima"
+
+
+    while True:
+        try:
+            response = requests.get(IP)
+            printLog("CENTRAL", "Petición para consultar clima.")
+            if response.status_code == 200:
+                data = response.json()
+                if data["status"] == "KO":
+                    climaAdverso = True
+                    printWarning(data["message"])
+                else:
+                    climaAdverso = False
+                    printInfo(data["message"])
+
+                printLog("CENTRAL", data["message"])
+            else:
+                printError("Error al consultar el clima")
+                printLog("CENTRAL", "Error al consultar el clima")
+        except Exception as e:
+            printError(f"Error al verificar el clima: {e}")
+            printLog("CENTRAL", f"Error al verificar el clima: {e}")   
+        finally:
+            time.sleep(10)
+
 ### API
 @app.route('/estadoActual-mapa', methods=['GET'])
 def estadoActual():
@@ -554,6 +594,10 @@ def main():
 
     ##hiloApi = threading.Thread(target=app.run, kwargs={'debug': True})
     ##hiloApi.start()
+
+    # Iniciar el hilo para verificar el clima
+    hiloClima = threading.Thread(target=verificarClima)
+    hiloClima.start()
 
 if __name__ == "__main__":
     # Ejecuta el servidor Flask en un hilo separado
