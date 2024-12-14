@@ -31,6 +31,7 @@ def obtenerIP(ID):
         printError(f"Error al obtener IP: {e}")
         return None
 
+# TODO: Eliminar una vez se vea que ya no es necesario
 def printLog(ID, message):
     IP = obtenerIP(ID)
 
@@ -68,6 +69,7 @@ def registrarTaxi():
     conexion.commit()
     conexion.close()
 
+    printInfo(f"Taxi {taxi_id} se ha registrado")
     printLog(taxi_id, f"Taxi {taxi_id} se ha registrado")
 
     return jsonify({"message": f"Registrado", "token": token}), 201
@@ -84,6 +86,7 @@ def borrarTaxi(taxi_id):
     if not cursor.fetchone():
         return jsonify({"error": f"Taxi {taxi_id} no está registrado"}), 404
 
+    printInfo(f"Taxi {taxi_id} ha sido dado de baja")
     printLog(taxi_id, f"Taxi {taxi_id} ha sido dado de baja")
 
     cursor.execute("DELETE FROM taxis WHERE id = %s", (taxi_id,))
