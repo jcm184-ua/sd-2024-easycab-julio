@@ -1,15 +1,24 @@
 import sqlite3
 from contextlib import closing
+import mariadb
 
-DATABASE = './resources/database.db'
+DATABASE_USER = 'ec_central'
+DATABASE_PASSWORD = 'sd2024_central'
+DATABASE_IP = '127.0.0.1'
+DATABASE_PORT = 3306
+DATABASE = 'easycab'
 
 def connDB():
     """
-    Devuelve una conexión a la base de datos. En el futuro, cambiar a MariaDB.
+    Devuelve una conexión a la base de datos.
     """
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row  # Para obtener resultados como diccionarios
-    return conn
+    conexion = mariadb.connect(
+            user=DATABASE_USER,
+            password=DATABASE_PASSWORD,
+            host=DATABASE_IP,
+            port=DATABASE_PORT,
+            database=DATABASE)
+    return conexion
 
 def init_db():
     """
