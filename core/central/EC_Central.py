@@ -495,7 +495,7 @@ def inputBase():
     threading.Thread(target=dirigirABaseATodos).start()
 
     while True:
-        user_input = input("Introduce 'ALL' para enviar todos los taxis a base o un ID específico: ").strip()
+        user_input = input("\033[94mIntroduce 'ALL' para enviar todos los taxis a base o un ID específico: \033[0m\n").strip()
 
         if user_input.upper() == "" or not user_input:
             continue
