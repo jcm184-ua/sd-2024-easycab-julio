@@ -134,4 +134,5 @@ def validarToken(taxi_id):
     return jsonify({"error": "Token inválido o taxi no registrado"}), 401
 
 if __name__ == "__main__":
+    printInfo("Iniciando EC_Registry...")
     app.run(debug=True, host="0.0.0.0", port=5001)

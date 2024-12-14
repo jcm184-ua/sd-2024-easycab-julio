@@ -27,6 +27,8 @@ BROKER_PORT = None
 BROKER_ADDR = None
 DATABASE_USER = 'ec_central'
 DATABASE_PASSWORD = 'sd2024_central'
+WEATHER_IP = 'localhost'
+WEATHER_PORT = 5002
 
 taxisConectados = [] # [1, 2, 3, 5]
 taxisLibres = [] # [2, 3]
@@ -181,7 +183,8 @@ def dbToJSON():
         # Convertir el objeto data a una cadena JSON con formato
         json_data = json.dumps(data, indent=4)
 
-        enviarJSONEnTopic(json_data, TOPIC_ESTADOS_MAPA, BROKER_ADDR)
+        printInfo("Enviando estado de la BBDD a traves del broker.")
+        publicarMensajeEnTopicSilent(json_data, TOPIC_ESTADOS_MAPA, BROKER_ADDR)
 
     except Exception as e:
         print(f"Error al convertir la base de datos a JSON: {e}")
@@ -523,14 +526,13 @@ def inputBase():
 
 def verificarClima():
     global climaAdverso
-    IP = "http://localhost:5002/consultarClima"
-
+    WEATHER_SERVER = f"http://{WEATHER_IP}:{WEATHER_PORT}/consultarClima"
 
     while True:
         try:
-            response = requests.get(IP)
-            printLog("CENTRAL", "Petición para consultar clima.")
+            response = requests.get(WEATHER_SERVER)
             printInfo("Petición para consultar clima.")
+            printLog("CENTRAL", "Petición para consultar clima.")
             if response.status_code == 200:
                 data = response.json()
                 if data["status"] == "KO":
@@ -542,11 +544,11 @@ def verificarClima():
 
                 printLog("CENTRAL", data["message"])
             else:
-                printError("Error al consultar el clima")
-                printLog("CENTRAL", "Error al consultar el clima")
+                printError("Error al consultar el clima.")
+                printLog("CENTRAL", "Error al consultar el clima.")
         except Exception as e:
-            printError(f"Error al verificar el clima: {e}")
-            printLog("CENTRAL", f"Error al verificar el clima: {e}")
+            printWarning(f"Servidor de clima innacesible.")
+            printLog("CENTRAL", f"Servidor de clima innacesible.")
         finally:
             time.sleep(10)
 
@@ -599,6 +601,8 @@ def main():
     hiloClima.start()
 
 if __name__ == "__main__":
+    printInfo("Iniciando EC_Central...")
+
     # Ejecuta el servidor Flask en un hilo separado
     hiloApi = threading.Thread(target=app.run, kwargs={'debug': True, 'use_reloader': False})
     hiloApi.start()

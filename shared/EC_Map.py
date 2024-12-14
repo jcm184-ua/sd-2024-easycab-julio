@@ -37,13 +37,13 @@ class Map:
                  #       print(f"{key} : {value}", end="")
                         if key.startswith('taxi'):
                             if key in self.taxisActivos:
-                                taxi = f"{COLORES_ANSI.BACKGROUD_GREEN}{COLORES_ANSI.BLACK}{key[5:]}{COLORES_ANSI.BLACK}{COLORES_ANSI.ENDC}"
+                                taxi = f"{COLORES_ANSI.BACKGROUD_GREEN}{COLORES_ANSI.BLACK}{key[5:]}{COLORES_ANSI.BLACK}{COLORES_ANSI.END_C}"
                             else:
-                                taxi = f"{COLORES_ANSI.BACKGROUD_RED}{COLORES_ANSI.BLACK}{key[5:]}{COLORES_ANSI.BLACK}{COLORES_ANSI.ENDC}"
+                                taxi = f"{COLORES_ANSI.BACKGROUD_RED}{COLORES_ANSI.BLACK}{key[5:]}{COLORES_ANSI.BLACK}{COLORES_ANSI.END_C}"
                         if key.startswith('localizacion'):
-                            localizacion = f"{COLORES_ANSI.BACKGROUD_BLUE}{COLORES_ANSI.BLACK}{key[13:]}{COLORES_ANSI.BLACK}{COLORES_ANSI.ENDC}"
+                            localizacion = f"{COLORES_ANSI.BACKGROUD_BLUE}{COLORES_ANSI.BLACK}{key[13:]}{COLORES_ANSI.BLACK}{COLORES_ANSI.END_C}"
                         if key.startswith('cliente'):
-                            cliente = f"{COLORES_ANSI.BACKGROUD_YELLOW}{COLORES_ANSI.BLACK}{key[8:]}{COLORES_ANSI.BLACK}{COLORES_ANSI.ENDC}"
+                            cliente = f"{COLORES_ANSI.BACKGROUD_YELLOW}{COLORES_ANSI.BLACK}{key[8:]}{COLORES_ANSI.BLACK}{COLORES_ANSI.END_C}"
                 else:
                     print(taxi + localizacion + cliente, end="")
                 print("|", end="")

@@ -28,26 +28,26 @@ class COLORES_ANSI:
     BACKGROUD_GREEN = '\033[102m'
     RED = '\033[91m'
     BACKGROUD_RED = '\033[101m'
-    ENDC = '\033[0m'
+    END_C = '\033[0m'
 
 def printDebug(mensaje):
     print(datetime.now(), f"DEBUG: {mensaje}")
     writeLog(datetime.now(), f"DEBUG: {mensaje}")
 
 def printInfo(mensaje):
-    print(datetime.now(), f"{COLORES_ANSI.GREEN}INFO: {mensaje}{COLORES_ANSI.ENDC}")
+    print(datetime.now(), f"{COLORES_ANSI.GREEN}INFO: {mensaje}{COLORES_ANSI.END_C}")
     writeLog(datetime.now(), f"INFO: {mensaje}")
 
 def printWarning(mensaje):
-    print(datetime.now(), f"{COLORES_ANSI.YELLOW}WARNING: {mensaje}{COLORES_ANSI.ENDC}")
+    print(datetime.now(), f"{COLORES_ANSI.YELLOW}WARNING: {mensaje}{COLORES_ANSI.END_C}")
     writeLog(datetime.now(), f"WARNING: {mensaje}")
 
 def printError(mensaje):
-    print(datetime.now(), f"{COLORES_ANSI.RED}ERROR: {mensaje}{COLORES_ANSI.ENDC}")
+    print(datetime.now(), f"{COLORES_ANSI.RED}ERROR: {mensaje}{COLORES_ANSI.END_C}")
     writeLog(datetime.now(), f"ERROR: {mensaje}")
 
 def exitFatal(mensaje):
-    print(datetime.now(), f"{COLORES_ANSI.RED}FATAL: {mensaje}{COLORES_ANSI.ENDC}")
+    print(datetime.now(), f"{COLORES_ANSI.RED}FATAL: {mensaje}{COLORES_ANSI.END_C}")
     writeLog(datetime.now(), f"FATAL: {mensaje}")
     os._exit(1)
 
@@ -146,20 +146,18 @@ def publicarMensajeEnTopic(mensaje, topic, broker_addr):
         # Broker no tiene que ser resiliente
         exitFatal(f"Error al publicar mensaje en el topic: {e}.")
 
-#TODO: Esto porque no usa publicarMensajeEnTopic ??
-def enviarJSONEnTopic(data, topic, broker_addr):
+def publicarMensajeEnTopicSilent(mensaje, topic, broker_addr):
     try:
+        printInfo(f"Conectando al broker en la dirección ({broker_addr}) como productor.")
         conexion = KafkaProducer(bootstrap_servers=broker_addr)
-
-        # Enviar el mensaje al topic
-        conexion.send(topic, data.encode(FORMAT))  # Asegúrate de que FORMAT es correcto
-        conexion.flush()
+        conexion.send(topic,(mensaje.encode(FORMAT)))
+        printInfo(f"Mensaje publicado en topic {topic}.")
         conexion.close()
         printInfo("Desconectado del broker como productor.")
 
     except Exception as e:
         # Broker no tiene que ser resiliente
-        exitFatal(f"Error al enviar el mensaje JSON en el topic: {e}")
+        exitFatal(f"Error al publicar mensaje en el topic: {e}.")
 
 def generarConexionBBDD(usuario, contrasena):
     try:
