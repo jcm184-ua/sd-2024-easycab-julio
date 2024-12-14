@@ -63,8 +63,17 @@ def asignarConstantes(argumentos):
 
 def obtenerIP(ID):
     try:
-        conexionBBDD = sqlite3.connect(DATABASE)
-        cursor = conexionBBDD.cursor()
+        try:
+            conexion = mariadb.connect(
+                user=DATABASE_USER,
+                password=DATABASE_PASSWORD,
+                host=DATABASE_IP,
+                port=DATABASE_PORT,
+                database=DATABASE)
+        except mariadb.Error as e:
+            printError(f"Excepción producida al conectar a la base de datos: {e}.")
+            sys.exit(1)
+        cursor = conexion.cursor()
 
         if ID.isdigit():
             cursor.execute("SELECT IP FROM taxis WHERE id = ?", (ID,))
@@ -77,11 +86,11 @@ def obtenerIP(ID):
         else:
             printError(f"No se encontró IP para el ID {ID}.")
             return None
-    except sqlite3.OperationalError as e:
+    except mariadb.Error as e:
         printError(f"Error al obtener IP: {e}")
         return None
     finally:
-        conexionBBDD.close()
+        conexion.close()
 
 
 def printLog(ID, message):
@@ -164,9 +173,17 @@ def ejecutarSentenciaBBDD(sentencia):
         return None
 
 def dbToJSON():
-    # Conexión a la base de datos SQLite
-    conn = sqlite3.connect(DATABASE)
-    cursor = conn.cursor()
+    try:
+        conexion = mariadb.connect(
+            user=DATABASE_USER,
+            password=DATABASE_PASSWORD,
+            host=DATABASE_IP,
+            port=DATABASE_PORT,
+            database=DATABASE)
+        cursor = conexion.cursor()
+    except Exception as a:
+        printError(a)
+        return None
 
     try:
         # Consultar datos de la tabla de taxis
@@ -211,7 +228,7 @@ def dbToJSON():
 
     finally:
         # Cerrar la conexión a la base de datos
-        conn.close()
+        conexion.close()
 
 def comprobarTaxi(idTaxi, tokenTaxi):
     try:
@@ -434,7 +451,7 @@ def gestionarTaxi(conexion, direccion):
                     break
                 else:
                     printWarning(f"Mensaje del taxi {direccion} recibido: {mensaje}")
-            except:
+            except Exception as e:
                 printError(f"Excepción {type(e)} en gestionarTaxi().")
 
         #Taxi ha caido
