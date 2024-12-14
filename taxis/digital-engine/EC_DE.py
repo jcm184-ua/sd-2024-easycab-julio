@@ -33,6 +33,9 @@ sensoresOk = 0
 estadoSensores = False
 mapa = Map()
 
+token = None
+tokenCentral = None
+
 posX = None
 posY = None
 cltX = None
@@ -79,10 +82,10 @@ def gestionarEstado():
     while True:
         if estadoSensores == True and (sensoresOk != sensoresConectados or sensoresConectados < 1):
             estadoSensores = False
-            publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SENSORES][KO]", TOPIC_TAXIS, BROKER_ADDR)
+            publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][{token}][SENSORES][KO]", TOPIC_TAXIS, BROKER_ADDR)
         elif estadoSensores == False and sensoresConectados > 0 and sensoresOk == sensoresConectados:
             estadoSensores = True
-            publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SENSORES][OK]", TOPIC_TAXIS, BROKER_ADDR)
+            publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][{token}][SENSORES][OK]", TOPIC_TAXIS, BROKER_ADDR)
         #printDebug("Iteración de gestionarEstado()")
         #printDebug(f"estadoSensores = {estadoSensores}, sensoresConectados = {sensoresConectados}, sensoresOk = {sensoresOk}")
         time.sleep(0.2)
@@ -122,7 +125,7 @@ def gestionarSensor(conexion, direccion):
                 #[EC_Sensor->EC_DE_?][OK]
                 camposMensaje = re.findall('[^\[\]]+', mensaje)
                 if camposMensaje[0] == "EC_Sensor->EC_DE_?":
-                    if camposMensaje[1] == "OK" and estadoSensor == True:
+                    elif camposMensaje[1] == "OK" and estadoSensor == True:
                         pass
                     elif camposMensaje[1] == "KO" and estadoSensor == False:
                         pass
@@ -142,17 +145,18 @@ def recibirMapaLogin(socket):
     try:
         mensaje = recibirMensajeClienteSilent(socket)
         camposMensaje = re.findall('[^\[\]]+', mensaje)
-        printInfo("Mapa recibido:")
-        mapa.loadJson(camposMensaje[1])
-        mapa.loadActiveTaxis(camposMensaje[2])
+        # TODO: COMPROBAR BROADCAST TOKEN DE CENTRAL
+        printInfo(f"Tokens DE:'{token}', Central:'{tokenCentral}'  y mapa recibidos:")
+        mapa.loadJson(camposMensaje[2])
+        mapa.loadActiveTaxis(camposMensaje[3])
         mapa.print()
         return True
     except Exception as e:
-        printError(f"Excepción {type(e)} al recibir el mapa: {e}.")
+        printError(f"Excepción {type(e)} al recibir el token y el mapa: {e}.")
         return False
 
 def gestionarConexionCentral():
-    global posX, posY, cltX, cltY, destX, destY, clienteARecoger
+    global token, tokenCentral, posX, posY, cltX, cltY, destX, destY, clienteARecoger
 
     while True:
         try:
@@ -163,7 +167,7 @@ def gestionarConexionCentral():
             else:
                 enviarMensajeCliente(socket, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST][KO][{posX},{posY}][{clienteARecoger}][{clienteRecogido}][{TOKEN}]")
             
-            #TODO: ¿Esto es necesario?
+            #TODO: ¿Alguna mejor forma de esperar a que central responda?
             time.sleep(0.2)
 
             while True:
@@ -173,24 +177,25 @@ def gestionarConexionCentral():
                     break
                 else:
                     camposMensaje = re.findall('[^\[\]]+', mensaje)
-                    if mensaje.startswith(f"[EC_Central->EC_DE_{ID}][AUTHORIZED]"):
-
+                    if mensaje.startswith(f"[EC_Central->EC_DE_{ID}][AUTHORIZED]"):       
+                        token = camposMensaje[2]
+                        tokenCentral = camposMensaje[3]
                         printInfo("Autentificación correcta.")
-                        posX = camposMensaje[2].split(",")[0]
-                        posY = camposMensaje[2].split(",")[1]
+                        posX = camposMensaje[4].split(",")[0]
+                        posY = camposMensaje[4].split(",")[1]
 
-                        if not recibirMapaLogin(socket):
+                        if not recibirTokensMapaLogin(socket):
                             break # Se ha perdido conexión con el sensor durante el envío del mapas
                         hiloMovimientos = threading.Thread(target=manejarMovimientos)
                         hiloMovimientos.start()
                         
-                        if camposMensaje[3] != "None":
-                            clienteARecoger = camposMensaje[3]
-                            cltX, cltY = obtenerPosicion(camposMensaje[3], True)
+                        if camposMensaje[5] != "None":
+                            clienteARecoger = camposMensaje[5]
+                            cltX, cltY = obtenerPosicion(camposMensaje[5], True)
 
-                        if camposMensaje[4] != "None":
-                            destX, destY = obtenerPosicion(camposMensaje[4], False)
-                        
+                        if camposMensaje[6] != "None":
+                            destX, destY = obtenerPosicion(camposMensaje[6], False)
+
                     elif mensaje == f"[EC_Central->EC_DE_{ID}][NOT_AUTHORIZED]":
                         socket.close()
                         raise Exception("Autentificación incorrecta.")
@@ -224,21 +229,25 @@ def gestionarBroker():
             if camposMensaje[0] == (f"EC_DE_{ID}->EC_Central"):
                 pass
             elif camposMensaje[0] == ("EC_Central->ALL"):
-                mapa.loadJson(camposMensaje[1])
-                mapa.loadActiveTaxis(camposMensaje[2])
-                mapa.print()
-            elif camposMensaje[0] == f"EC_Central->BASE":
-                if camposMensaje[1] == "ALL" or camposMensaje[1] == ID:
-                    if camposMensaje[2] == "SI":
-                        irBase = True
-                    elif camposMensaje[2] == "NO":
-                        irBase = False
-            elif camposMensaje[0] == f"EC_Central->EC_DE_{ID}":
-                if camposMensaje[1] == "SERVICIO":
-                    clienteARecoger = camposMensaje[2].split("->")[0]
-                    idLocalizacion = camposMensaje[2].split("->")[1]
-                    cltX, cltY = obtenerPosicion(clienteARecoger, True)
-                    destX, destY = obtenerPosicion(idLocalizacion, False)
+                    if not camposMensaje[1] != tokenCentral
+                        printInfo("Mensaje enviado por central con token incorrecto. Ignorando...")
+                        pass
+                    elif                
+                        mapa.loadJson(camposMensaje[1])
+                        mapa.loadActiveTaxis(camposMensaje[2])
+                        mapa.print()
+                    elif camposMensaje[0] == f"EC_Central->BASE":
+                        if camposMensaje[2] == "ALL" or camposMensaje[2] == ID:
+                            if camposMensaje[3] == "SI":
+                                irBase = True
+                            elif camposMensaje[3] == "NO":
+                                irBase = False
+                    elif camposMensaje[0] == f"EC_Central->EC_DE_{ID}":
+                        if camposMensaje[3] == "SERVICIO":
+                            clienteARecoger = camposMensaje[3].split("->")[0]
+                            idLocalizacion = camposMensaje[3].split("->")[1]
+                            cltX, cltY = obtenerPosicion(clienteARecoger, True)
+                            destX, destY = obtenerPosicion(idLocalizacion, False)
             else:
                 # TODO: Informar mas que decir que error
                 pass
@@ -279,12 +288,12 @@ def mover(x, y):
             posY = y
 
             printInfo(f"Moviendo a dirección ({x},{y})")        
-            """publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][MOVIMIENTO][{x},{y}][{clienteARecoger}]", TOPIC_TAXIS, BROKER_ADDR)"""
+            """publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][{token}][MOVIMIENTO][{x},{y}][{clienteARecoger}]", TOPIC_TAXIS, BROKER_ADDR)"""
 
             if clienteRecogido:
-                publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][MOVIMIENTO][{x},{y}][{clienteARecoger}][{idLocalizacion}]", TOPIC_TAXIS, BROKER_ADDR)
+                publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][{token}][MOVIMIENTO][{x},{y}][{clienteARecoger}][{idLocalizacion}]", TOPIC_TAXIS, BROKER_ADDR)
             else:
-                publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][MOVIMIENTO][{x},{y}][{None}][{None}]", TOPIC_TAXIS, BROKER_ADDR)
+                publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][{token}][MOVIMIENTO][{x},{y}][{None}][{None}]", TOPIC_TAXIS, BROKER_ADDR)
 
     except Exception as e:
         printError(f"Excepción {type(e)} inesperada en mover(): {e}. Donde las variables globales son posX = {posX}, posY = {posY}, clienteRecogido = {clienteRecogido}, clienteARecoger = {clienteARecoger}, idLocalizacion = {idLocalizacion}, estadoSensores = {estadoSensores}")
@@ -338,9 +347,9 @@ def manejarMovimientos():
                                 clienteRecogido = True
                                 printInfo("Cliente recogido.")
                                 if clienteRecogido:
-                                    publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_RECOGIDO][{clienteARecoger}][{idLocalizacion}]", TOPIC_TAXIS, BROKER_ADDR)
+                                    publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][{token}][SERVICIO][CLIENTE_RECOGIDO][{clienteARecoger}][{idLocalizacion}]", TOPIC_TAXIS, BROKER_ADDR)
                                 else: #TODO: NUNCA SE VA A EJECUTAR??'
-                                    publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_RECOGIDO][{None}][{None}]", TOPIC_TAXIS, BROKER_ADDR)
+                                    publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][{token}][SERVICIO][CLIENTE_RECOGIDO][{None}][{None}]", TOPIC_TAXIS, BROKER_ADDR)
                         except Exception as e:
                             raise Exception(f"PARTE 2: Error al mover hacia el cliente. {e}")
                     # Mover hacia el destino del cliente
@@ -355,7 +364,7 @@ def manejarMovimientos():
                     
                             if estadoSensores:
                                 printInfo("Destino alcanzado.")
-                                publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][SERVICIO][CLIENTE_EN_DESTINO][{clienteARecoger}][{x},{y}][{idLocalizacion}]", TOPIC_TAXIS, BROKER_ADDR)
+                                publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][{token}][SERVICIO][CLIENTE_EN_DESTINO][{clienteARecoger}][{x},{y}][{idLocalizacion}]", TOPIC_TAXIS, BROKER_ADDR)
                                 clienteRecogido = False
                                 clienteARecoger = None
                                 destX, destY, cltX, cltY = None, None, None, None
