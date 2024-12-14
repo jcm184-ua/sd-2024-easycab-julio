@@ -499,7 +499,7 @@ def inputBase():
     threading.Thread(target=dirigirABaseATodos).start()
 
     while True:
-        user_input = input("\033[94mIntroduce 'ALL' para enviar todos los taxis a base o un ID específico: \033[0m\n").strip()
+        user_input = input(f"{COLORES_ANSI.BLUE}Introduce 'ALL' para enviar todos los taxis a base o un ID específico:{COLORES_ANSI.END_C}\n").strip()
 
         if user_input.upper() == "" or not user_input:
             continue

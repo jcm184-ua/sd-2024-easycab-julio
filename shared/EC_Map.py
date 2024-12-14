@@ -6,19 +6,10 @@ import re
 from EC_Shared import *
 import time
 
+from EC_Shared import *
+
 SIZE = 20
 TILE_SIZE = 30  # Tamaño de cada celda del mapa
-
-class COLORES_ANSII:
-    BLACK = '\033[30m'
-    #BLUE = '\033[94m'
-    BACKGROUD_BLUE = '\033[104m'
-    #YELLOW = '\033[93m'
-    BACKGROUD_YELLOW = '\033[103m'
-    #GREEN = '\033[92m'
-    BACKGROUD_GREEN = '\033[102m'
-    ENDC = '\033[0m'
-    BACKGROUD_RED = '\033[101m'
 
 class Map:
     diccionarioPosiciones = {}
@@ -46,13 +37,13 @@ class Map:
                  #       print(f"{key} : {value}", end="")
                         if key.startswith('taxi'):
                             if key in self.taxisActivos:
-                                taxi = f"{COLORES_ANSII.BACKGROUD_GREEN}{COLORES_ANSII.BLACK}{key[5:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}"
+                                taxi = f"{COLORES_ANSI.BACKGROUD_GREEN}{COLORES_ANSI.BLACK}{key[5:]}{COLORES_ANSI.BLACK}{COLORES_ANSI.ENDC}"
                             else:
-                                taxi = f"{COLORES_ANSII.BACKGROUD_RED}{COLORES_ANSII.BLACK}{key[5:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}"
+                                taxi = f"{COLORES_ANSI.BACKGROUD_RED}{COLORES_ANSI.BLACK}{key[5:]}{COLORES_ANSI.BLACK}{COLORES_ANSI.ENDC}"
                         if key.startswith('localizacion'):
-                            localizacion = f"{COLORES_ANSII.BACKGROUD_BLUE}{COLORES_ANSII.BLACK}{key[13:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}"
+                            localizacion = f"{COLORES_ANSI.BACKGROUD_BLUE}{COLORES_ANSI.BLACK}{key[13:]}{COLORES_ANSI.BLACK}{COLORES_ANSI.ENDC}"
                         if key.startswith('cliente'):
-                            cliente = f"{COLORES_ANSII.BACKGROUD_YELLOW}{COLORES_ANSII.BLACK}{key[8:]}{COLORES_ANSII.BLACK}{COLORES_ANSII.ENDC}"
+                            cliente = f"{COLORES_ANSI.BACKGROUD_YELLOW}{COLORES_ANSI.BLACK}{key[8:]}{COLORES_ANSI.BLACK}{COLORES_ANSI.ENDC}"
                 else:
                     print(taxi + localizacion + cliente, end="")
                 print("|", end="")
@@ -94,7 +85,7 @@ class Map:
                     # Si hay un cliente pero no un taxi, se dibuja en amarillo
                     if not taxi_dibujado and any(k.startswith('cliente') for k in self.diccionarioPosiciones.keys() if self.diccionarioPosiciones[k] == f"{i+1},{j+1}"):
                         canvas.create_rectangle(x1, y1, x2, y2, fill="yellow")  # Dibuja cliente en amarillo
-                    
+
                     canvas.create_rectangle(x1, y1, x2, y2, outline="black", fill=backgroud_color)
 
 
@@ -184,7 +175,7 @@ def consumidorEstados(TOPIC_ESTADOS_MAPA, BROKER_ADDR, add_taxi_callback, add_cl
                         clienteID = taxi.get("cliente")
                         if taxi.get("destino"):
                             locID = taxi.get("destino")
-                    
+
                     if taxi.get("estado") == "OK":
                         if taxi.get("estado") == "servicio":
                             taxiEstado = f"OK. Servicio " + clienteID
@@ -204,9 +195,9 @@ def consumidorEstados(TOPIC_ESTADOS_MAPA, BROKER_ADDR, add_taxi_callback, add_cl
                             taxiDestino = taxi.get("destino")
                         elif taxi.get("estado") == "enCamino":
                             taxiDestino = clienteID
-                            
+
                         taxiEstado = f"KO. Parado"
-                        
+
 
                     add_taxi_callback(
                         taxiID,
@@ -216,21 +207,21 @@ def consumidorEstados(TOPIC_ESTADOS_MAPA, BROKER_ADDR, add_taxi_callback, add_cl
 
                     if clienteID:
                         taxis_clientes[clienteID] = [taxiID, locID, taxi["estado"]]
-                        
+
                 # Cargar los datos de los clientes
                 for cliente in data.get("clientes", []):
                     estadoTaxi = None
                     taxiID = None
                     locID = None
-                    
+
 
                     clienteID = cliente.get("id")
 
                     if clienteID in taxis_clientes.keys():
                         taxiID = taxis_clientes[clienteID][0]
                         locID = taxis_clientes[clienteID][1]
-                        estadoTaxi = taxis_clientes[clienteID][2]                
-                    
+                        estadoTaxi = taxis_clientes[clienteID][2]
+
                     if estadoTaxi == "servicio":
                         clienteEstado = f"OK. En camino"
                     elif estadoTaxi == "enCamino":
@@ -245,7 +236,7 @@ def consumidorEstados(TOPIC_ESTADOS_MAPA, BROKER_ADDR, add_taxi_callback, add_cl
                     )
             except Exception as e:
                 printError(f"Error al procesar mensaje: {e}")
-            
+
 
 
 def create_window(map_instance, BROKER_ADDR):
@@ -355,27 +346,14 @@ def create_window(map_instance, BROKER_ADDR):
     # Ejecutar el loop de Tkinter para mantener la ventana abierta
     root.mainloop()
 
-""" def load_data_from_json(filename, add_taxi, add_client, clear_taxi_table, clear_client_table):
-    # Limpiar tabla de taxis
-    clear_taxi_table()
+def iniciarMapa(map_instance, BROKER_ADDR):
+    # Mostrar el mapa gráficamente con Tkinter y consumir/ producir mensajes de Kafka
+    create_window(map_instance, BROKER_ADDR)
 
-    # Limpiar tabla de clientes
-    clear_client_table()
-
-    with open(filename, 'r') as file:
-        data = json.load(file)
-
-        # Cargar taxis
-        for taxi in data["taxis"]:
-            add_taxi(taxi["id"], taxi["destino"], taxi["estado"])
-
-        # Cargar clientes
-        for cliente in data["clientes"]:
-            add_client(cliente["id"], cliente["destino"], cliente["estado"]) """
-
-
-# Ejemplo de uso
-""" def main():
+"""
+#Descomentar para pruebas
+def main():
+    map_instance = Map()
         # Imprimir el mapa inicial por consola
     map_instance.print()
 
@@ -407,44 +385,8 @@ def create_window(map_instance, BROKER_ADDR):
     # Cargar el mapa desde JSON y mostrarlo por consola
     map_instance.loadJson(pruebaJson)
     map_instance.loadActiveTaxis(pruebaJson2)
-    map_instance.print() """
-
-def iniciarMapa(map_instance, BROKER_ADDR):
-    # Imprimir el mapa inicial por consola
-    """ map_instance.print()
-
-    # Actualizar el mapa con taxis, clientes y localizaciones
-    map_instance.diccionarioPosiciones.update({"taxi_1": "1,2"})
-    map_instance.diccionarioPosiciones.update({"taxi_2": "8,2"})
-    map_instance.diccionarioPosiciones.update({"taxi_3": "17,8"})
-    map_instance.diccionarioPosiciones.update({"cliente_d": "8,9"})
-    map_instance.diccionarioPosiciones.update({"cliente_e": "17,8"})
-    map_instance.diccionarioPosiciones.update({"localizacion_A": "3,5"})
-    map_instance.diccionarioPosiciones.update({"localizacion_B": "10,18"})
-    map_instance.diccionarioPosiciones.update({"localizacion_C": "14,6"})
-
-    map_instance.taxisActivos.append("taxi_1")
-    map_instance.taxisActivos.append("taxi_3")
-
-    # Imprimir el mapa actualizado por consola
     map_instance.print()
 
-    # Exportar el mapa a JSON
-    pruebaJson = map_instance.exportJson()
-    pruebaJson2 = map_instance.exportActiveTaxis()
-    print("Exportado JSON:", pruebaJson, pruebaJson2)
-
-    # Borrar el mapa en la consola
-    map_instance.clear()
-    map_instance.print()
-
-    # Cargar el mapa desde JSON y mostrarlo por consola
-    map_instance.loadJson(pruebaJson)
-    map_instance.loadActiveTaxis(pruebaJson2)
-    map_instance.print() """
-
-    # Mostrar el mapa gráficamente con Tkinter y consumir/ producir mensajes de Kafka
-    create_window(map_instance, BROKER_ADDR)
-
-""" if __name__ == "__main__":
-    main() """
+if __name__ == "__main__":
+    main()
+"""

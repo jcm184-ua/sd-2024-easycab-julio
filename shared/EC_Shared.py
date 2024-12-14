@@ -18,24 +18,36 @@ DATABASE_IP = '127.0.0.1'
 DATABASE_PORT = 3306
 DATABASE = 'easycab'
 
+class COLORES_ANSI:
+    BLACK = '\033[30m'
+    BLUE = '\033[94m'
+    BACKGROUD_BLUE = '\033[104m'
+    YELLOW = '\033[93m'
+    BACKGROUD_YELLOW = '\033[103m'
+    GREEN = '\033[92m'
+    BACKGROUD_GREEN = '\033[102m'
+    RED = '\033[91m'
+    BACKGROUD_RED = '\033[101m'
+    ENDC = '\033[0m'
+
 def printDebug(mensaje):
     print(datetime.now(), f"DEBUG: {mensaje}")
     writeLog(datetime.now(), f"DEBUG: {mensaje}")
 
 def printInfo(mensaje):
-    print(datetime.now(), f"INFO: {mensaje}")
+    print(datetime.now(), f"{COLORES_ANSI.GREEN}INFO: {mensaje}{COLORES_ANSI.ENDC}")
     writeLog(datetime.now(), f"INFO: {mensaje}")
 
 def printWarning(mensaje):
-    print(datetime.now(), f"WARNING: {mensaje}")
+    print(datetime.now(), f"{COLORES_ANSI.YELLOW}WARNING: {mensaje}{COLORES_ANSI.ENDC}")
     writeLog(datetime.now(), f"WARNING: {mensaje}")
 
 def printError(mensaje):
-    print(datetime.now(), f"ERROR: {mensaje}")
+    print(datetime.now(), f"{COLORES_ANSI.RED}ERROR: {mensaje}{COLORES_ANSI.ENDC}")
     writeLog(datetime.now(), f"ERROR: {mensaje}")
 
 def exitFatal(mensaje):
-    print(datetime.now(), f"FATAL: {mensaje}")
+    print(datetime.now(), f"{COLORES_ANSI.RED}FATAL: {mensaje}{COLORES_ANSI.ENDC}")
     writeLog(datetime.now(), f"FATAL: {mensaje}")
     os._exit(1)
 
