@@ -4,6 +4,7 @@ from kafka import KafkaConsumer, KafkaProducer
 import json
 import sys
 import mariadb
+import os
 
 HEADER = 64
 FORMAT = 'utf-8'
@@ -20,19 +21,32 @@ DATABASE = 'easycab'
 
 def printInfo(mensaje):
     print(datetime.now(), f"INFO: {mensaje}")
+    writeLog(datetime.now(), f"INFO: {mensaje}")
 
 def printWarning(mensaje):
     print(datetime.now(), f"WARNING: {mensaje}")
+    writeLog(datetime.now(), f"WARNING: {mensaje}")
 
 def printError(mensaje):
     print(datetime.now(), f"ERROR: {mensaje}")
+    writeLog(datetime.now(), f"ERROR: {mensaje}")
 
 def exitFatal(mensaje):
     print(datetime.now(), f"FATAL: {mensaje}")
+    writeLog(datetime.now(), f"FATAL: {mensaje}")
     sys.exit()
 
 def printDebug(mensaje):
     print(datetime.now(), f"DEBUG: {mensaje}")
+    writeLog(datetime.now(), f"DEBUG: {mensaje}")
+
+def writeLog(datetimeNow, message):
+    fechaActual = datetime.now().strftime("%Y-%m-%d")
+    nombreArchivo = f"log/logs_{fechaActual}.log"
+    os.makedirs(os.path.dirname(nombreArchivo), exist_ok=True)
+
+    with open(nombreArchivo, "a") as archivo_log:
+        archivo_log.write(str(datetimeNow) + " [" + sys.argv[0] + "] " + message + "\n")
 
 def abrirSocketServidor(socket_addr):
     printInfo(f"Abriendo socket servidor en la dirección {socket_addr}.")
