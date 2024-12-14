@@ -1,0 +1,17 @@
+services:
+  mariadb:
+    image: mariadb
+    restart: always
+    environment:
+      MARIADB_ROOT_PASSWORD: sd2024_root
+      MARIADB_DATABASE: easycab
+    command: --init-file /usr/src/app/iniciarBBDD.sql
+    volumes:
+      - ./:/usr/src/app/
+    ports:
+      - 3306:3306
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8080:8080

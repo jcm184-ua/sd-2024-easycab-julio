@@ -2,17 +2,15 @@ import sys
 import time
 import json
 import re
-import sqlite3
-from sqlite3 import OperationalError
 import socket
 import threading
 from kafka import KafkaConsumer, KafkaProducer
+import mariadb
 from flask import Flask
 from flask_cors import CORS
 from datetime import datetime
 import os
 import requests
-
 
 sys.path.append('../../shared')
 from EC_Shared import *
@@ -21,12 +19,17 @@ from EC_Map import iniciarMapa
 
 DATABASE = './resources/database.db'
 
-HOST = "" # Simbólico, nos permite escuchar en todas las interfaces de red
+HOST = '' # Simbólico, nos permite escuchar en todas las interfaces de red
 LISTEN_PORT = None
 THIS_ADDR = None
 BROKER_IP = None
 BROKER_PORT = None
 BROKER_ADDR = None
+DATABASE_USER = 'ec_central'
+DATABASE_PASSWORD = 'sd2024_central'
+DATABASE_IP = '127.0.0.1'
+DATABASE_PORT = 3306
+DATABASE = 'easycab'
 
 taxisConectados = [] # [1, 2, 3, 5]
 taxisLibres = [] # [2, 3]
@@ -109,12 +112,21 @@ def leerConfiguracionMapa():
                     #printDebug(f"Cargada localización {item['Id']} con coordenadas ({item['POS']}).")
             printInfo("Mapa cargado con éxito desde fichero.")
     except IOError as error:
-        printInfo("FATAL: No se ha podido abrir el fichero.")
+        printFatal("No se ha podido abrir el fichero.")
         sys.exit()
 
 def leerBBDD():
-    conexionBBDD = sqlite3.connect(DATABASE)
-    cursor = conexionBBDD.cursor()
+    try:
+        conexion = mariadb.connect(
+            user=DATABASE_USER,
+            password=DATABASE_PASSWORD,
+            host=DATABASE_IP,
+            port=DATABASE_PORT,
+            database=DATABASE)
+    except mariadb.Error as e:
+        printError(f"Excepción producida al conectar a la base de datos: {e}.")
+        sys.exit(1)
+    cursor = conexion.cursor()
 
     cursor.execute("SELECT id, posicion FROM taxis")
     taxis = cursor.fetchall()
@@ -129,25 +141,28 @@ def leerBBDD():
         mapa.setPosition(f"cliente_{cliente[0]}", int(cliente[1].split(",")[0]), int(cliente[1].split(",")[1]))
         #printInfo(f"Cargado cliente {cliente[0]} con posición {cliente[1]}.")
     printInfo(f"Ubiación clientes cargada desde BBDD.")
-    
     dbToJSON()
-    conexionBBDD.close()
+    conexion.close()
 
 def ejecutarSentenciaBBDD(sentencia):
-    printInfo(f"Ejecutando sentencia en la base de datos: '{sentencia}'.")
     try:
-        conexionBBDD = sqlite3.connect(DATABASE)
-        cursor = conexionBBDD.cursor()
+        conexion = mariadb.connect(
+            user=DATABASE_USER,
+            password=DATABASE_PASSWORD,
+            host=DATABASE_IP,
+            port=DATABASE_PORT,
+            database=DATABASE)
+        cursor = conexion.cursor()
         cursor.execute(sentencia)
         resultado = cursor.fetchall()
-        conexionBBDD.commit()
-        conexionBBDD.close()
+        conexion.commit()
+        conexion.close()
         dbToJSON()
         return resultado
     except Exception as a:
         printError(a)
         return None
-    
+
 def dbToJSON():
     # Conexión a la base de datos SQLite
     conn = sqlite3.connect(DATABASE)
@@ -187,7 +202,7 @@ def dbToJSON():
 
         # Convertir el objeto data a una cadena JSON con formato
         json_data = json.dumps(data, indent=4)
-        
+
         enviarJSONEnTopic(json_data, TOPIC_ESTADOS_MAPA, BROKER_ADDR)
 
     except Exception as e:
@@ -200,8 +215,13 @@ def dbToJSON():
 
 def comprobarTaxi(idTaxi, tokenTaxi):
     try:
-        conexionBBDD = sqlite3.connect(DATABASE)
-        cursor = conexionBBDD.cursor()
+        conexion = mariadb.connect(
+            user=DATABASE_USER,
+            password=DATABASE_PASSWORD,
+            host=DATABASE_IP,
+            port=DATABASE_PORT,
+            database=DATABASE)
+        cursor = conexion.cursor()
 
         cursor.execute("SELECT token FROM taxis WHERE id = ?", (idTaxi,))
         resultado = cursor.fetchone()
@@ -220,8 +240,8 @@ def comprobarTaxi(idTaxi, tokenTaxi):
                 else:
                     printError(f"Token incorrecto para el taxi {idTaxi}.")
                     return False
-    except sqlite3.OperationalError as msg:
-        printError(msg)
+    except Exception as e:
+        printError(e)
         return False
 
 def gestionarBrokerClientes():
@@ -385,13 +405,13 @@ def autenticarTaxi(conexion, direccion):
             printInfo(f"El taxi {idTaxi} acaba de arrancar.")
         #[EC_Central->EC_DE_1][AUTHORIZED][1,2][Cliente][Destino]
         taxiBBDD = ejecutarSentenciaBBDD(f"SELECT * FROM taxis WHERE id = {idTaxi}")
-                
+
         enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][AUTHORIZED][{taxiBBDD[0][3].split(',')[0]},{taxiBBDD[0][3].split(',')[1]}][{taxiBBDD[0][4]}][{taxiBBDD[0][5]}]")
         enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]")
 
         publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Autorizado.", TOPIC_ERRORES_MAPA, BROKER_ADDR)
         printLog(idTaxi, f"Taxi {idTaxi} ha sido autorizado.")
-        #actualizarEstadosJSON(False, idTaxi, "OK. Parado") 
+        #actualizarEstadosJSON(False, idTaxi, "OK. Parado")
         return idTaxi
 
     else:
@@ -428,7 +448,7 @@ def gestionarTaxi(conexion, direccion):
             publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{cliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR)
             ejecutarSentenciaBBDD(f"UPDATE taxis SET cliente = NULL WHERE id = {idTaxi}")
             ejecutarSentenciaBBDD(f"UPDATE taxis SET destino = NULL WHERE id = {idTaxi}")
-        
+
         mapa.deactivateTaxi(idTaxi)
         ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'desconectado' WHERE id = {idTaxi}")
 
@@ -452,12 +472,12 @@ def gestionarLoginTaxis():
 def dirigirABaseATodos():
     global irBase
 
-    estado_anterior = irBase 
+    estado_anterior = irBase
 
     while True:
         if climaAdverso:
             irBase = True
-        if irBase != estado_anterior:  
+        if irBase != estado_anterior:
             if irBase:
                 printInfo("Enviando todos los taxis a base.")
                 publicarMensajeEnTopic(f"[EC_Central->BASE][ALL][SI]", TOPIC_TAXIS, BROKER_ADDR)
@@ -478,7 +498,7 @@ def dirigirTaxiABase(idTaxi):
         if idTaxi not in taxisConectados:
             printError(f"Taxi {idTaxi} no está conectado.")
             return
-        
+
         if idTaxi in taxisEnBase:
             printInfo(f"Cancelando envio a la base del taxi {idTaxi}.")
             taxisEnBase.remove(idTaxi)
@@ -493,7 +513,7 @@ def dirigirTaxiABase(idTaxi):
             printLog(idTaxi, "Enviando a la base.")
     except Exception as e:
         raise e
-        
+
 
 def inputBase():
     global irBase
@@ -502,7 +522,7 @@ def inputBase():
 
     while True:
         user_input = input("Introduce 'ALL' para enviar todos los taxis a base o un ID específico: ").strip()
-        
+
         if user_input.upper() == "" or not user_input:
             continue
         if (not climaAdverso):
@@ -521,7 +541,7 @@ def inputBase():
                     printError(f"Error con la ID '{taxiId}': {e}")
         else:
             printError("No se puede actuar sobre los taxis debido al clima adverso. Todos vuelven a base")
-                
+
 
 def verificarClima():
     global climaAdverso
@@ -547,20 +567,20 @@ def verificarClima():
                 printLog("CENTRAL", "Error al consultar el clima")
         except Exception as e:
             printError(f"Error al verificar el clima: {e}")
-            printLog("CENTRAL", f"Error al verificar el clima: {e}")   
+            printLog("CENTRAL", f"Error al verificar el clima: {e}")
         finally:
             time.sleep(10)
 
 ### API
 @app.route('/estadoActual-mapa', methods=['GET'])
 def estadoActual():
-    return mapa.exportJson()    
+    return mapa.exportJson()
 
 @app.route('/logs', methods=['GET'])
 def obtenerLogs():
     fecha_actual = datetime.now().strftime("%Y-%m-%d")
     nombre_archivo = f"log/logs_{fecha_actual}.log"
-    
+
     if os.path.exists(nombre_archivo):
         with open(nombre_archivo, "r") as archivo_log:
             contenido = archivo_log.read()

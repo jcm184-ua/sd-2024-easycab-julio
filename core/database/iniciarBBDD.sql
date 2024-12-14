@@ -1,5 +1,7 @@
-DROP TABLE taxis;
-DROP TABLE clientes;
+USE easycab;
+DROP TABLE IF EXISTS taxis;
+DROP TABLE IF EXISTS clientes;
+DROP USER IF EXISTS 'ec_central'@'';
 
 CREATE TABLE IF NOT EXISTS taxis (
     id TEXT PRIMARY KEY,
@@ -11,23 +13,24 @@ CREATE TABLE IF NOT EXISTS taxis (
     token TEXT,
     IP TEXT
 );
-
 CREATE TABLE IF NOT EXISTS clientes (
     id TEXT PRIMARY KEY,
-    posicion TEXT NOT NULL default "-,-",
+    posicion TEXT NOT NULL default "0,0",
     IP TEXT
 );
-
 INSERT INTO taxis (id, posicion) VALUES (1, "1,1");
 INSERT INTO taxis (id, posicion) VALUES (2, "1,2");
 INSERT INTO taxis (id, posicion) VALUES (3, "1,3");
 INSERT INTO taxis (id, posicion) VALUES (4, "1,4");
 INSERT INTO taxis (id, posicion) VALUES (5, "1,5");
 INSERT INTO taxis (id, posicion) VALUES (6, "1,6");
-
 INSERT INTO clientes (id, posicion) VALUES ("a", "15,17");
 INSERT INTO clientes (id, posicion) VALUES ("b", "6,12");
 INSERT INTO clientes (id, posicion) VALUES ("c", "18,15");
 INSERT INTO clientes (id, posicion) VALUES ("d", "3,5");
 INSERT INTO clientes (id, posicion) VALUES ("e", "7,8");
 INSERT INTO clientes (id, posicion) VALUES ("f", " 13, 14");
+
+CREATE USER 'ec_central'@'%' IDENTIFIED BY 'sd2024_central';
+GRANT ALL PRIVILEGES ON easycab.* TO 'ec_central'@'%';
+FLUSH PRIVILEGES;
