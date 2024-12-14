@@ -103,15 +103,12 @@ def publicarMensajeEnTopic(mensaje, topic, broker_addr):
 
 def enviarJSONEnTopic(data, topic, broker_addr):
     try:
-        printInfo(f"Conectando al broker en la dirección ({broker_addr}) como productor.")
         conexion = KafkaProducer(bootstrap_servers=broker_addr)
 
         # Enviar el mensaje al topic
         conexion.send(topic, data.encode(FORMAT))  # Asegúrate de que FORMAT es correcto
         conexion.flush()
-        
-        printInfo(f"Mensaje JSON enviado: {data} en topic {topic}.")
-    
+            
     except Exception as e:
         print(f"Error al enviar el mensaje JSON en el topic: {e}")
     

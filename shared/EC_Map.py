@@ -165,17 +165,87 @@ def consumidorEstados(TOPIC_ESTADOS_MAPA, BROKER_ADDR, add_taxi_callback, add_cl
 
     while True:
         for mensaje in consumer:
-            printInfo(f"Mensaje recibido: {mensaje.value.decode(FORMAT)}")
-            clear_taxi_table_callback()
-            clear_client_table_callback()
-            data = json.loads(mensaje.value.decode(FORMAT))
-            # Cargar taxis
-            for taxi in data.get("taxis", []):
-                add_taxi_callback(taxi.get("id"), taxi.get("destino"), f"{taxi.get('sensores', '')}. {taxi.get('estado', '')}")
+            try:
+                taxis_clientes = {}
+                data = json.loads(mensaje.value.decode('utf-8'))
+                # Limpiar las tablas de taxis y clientes
+                clear_taxi_table_callback()
+                clear_client_table_callback()
 
-            # Cargar clientes
-            for cliente in data.get("clientes", []):
-                add_client_callback(cliente["id"], cliente["destino"], cliente["estado"])
+                taxiID = None
+                # Cargar los datos de los taxis
+                for taxi in data.get("taxis", []):
+                    taxiID = taxi.get("id")
+                    taxiDestino = None
+                    taxiEstado = None
+                    clienteID = None
+                    locID = None
+                    if taxi.get("cliente"):
+                        clienteID = taxi.get("cliente")
+                        if taxi.get("destino"):
+                            locID = taxi.get("destino")
+                    
+                    if taxi.get("estado") == "OK":
+                        if taxi.get("estado") == "servicio":
+                            taxiEstado = f"OK. Servicio " + clienteID
+                            taxiDestino = taxi.get("destino")
+                        elif taxi.get("estado") == "enCamino":
+                            taxiEstado = f"OK. Servicio " + clienteID
+                            taxiDestino = clienteID
+                        elif taxi.get("estado") == "esperando":
+                            taxiEstado = f"OK. Parado"
+                        elif taxi.get("estado") == "desconectado":
+                            taxiEstado = f"KO. Parado"
+                        else:
+                            taxiEstado = taxi.get("estado")
+                            taxiDestino = taxi.get("destino")
+                    else:
+                        if taxi.get("estado") == "servicio":
+                            taxiDestino = taxi.get("destino")
+                        elif taxi.get("estado") == "enCamino":
+                            taxiDestino = clienteID
+                            
+                        taxiEstado = f"KO. Parado"
+                        
+
+                    add_taxi_callback(
+                        taxiID,
+                        taxiDestino,
+                        taxiEstado
+                    )
+
+                    if clienteID:
+                        taxis_clientes[clienteID] = [taxiID, locID, taxi["estado"]]
+                        
+                # Cargar los datos de los clientes
+                for cliente in data.get("clientes", []):
+                    estadoTaxi = None
+                    taxiID = None
+                    locID = None
+                    
+
+                    clienteID = cliente.get("id")
+
+                    if clienteID in taxis_clientes.keys():
+                        taxiID = taxis_clientes[clienteID][0]
+                        locID = taxis_clientes[clienteID][1]
+                        estadoTaxi = taxis_clientes[clienteID][2]                
+                    
+                    if estadoTaxi == "servicio":
+                        clienteEstado = f"OK. En camino"
+                    elif estadoTaxi == "enCamino":
+                        clienteEstado = f"OK. Taxi " + taxiID
+                    else:
+                        clienteEstado = f"OK. Esperando."
+
+                    add_client_callback(
+                        clienteID,
+                        locID,
+                        clienteEstado
+                    )
+            except Exception as e:
+                printError(f"Error al procesar mensaje: {e}")
+            
 
 
 def create_window(map_instance, BROKER_ADDR):
@@ -256,10 +326,14 @@ def create_window(map_instance, BROKER_ADDR):
 
     # Método para añadir un taxi a la tabla
     def add_taxi(id, destino, estado):
+        if destino is None:
+            destino = "-"
         taxi_table.insert("", tk.END, values=(id, destino, estado))
 
     # Método para añadir un cliente a la tabla
     def add_client(id, destino, estado):
+        if destino is None:
+            destino = "-"
         client_table.insert("", tk.END, values=(id, destino, estado))
 
     # Método para limpiar la tabla de taxis
@@ -274,9 +348,6 @@ def create_window(map_instance, BROKER_ADDR):
 
     # Dibuja el mapa en el canvas
     threading.Thread(target=map_instance.draw_on_canvas, args=(canvas,), daemon=True).start()
-
-    addError("ERROR: Taxi 2 ha caido.")
-    addError("INFO: Taxi 3 ha recogido a su cliente e.")
     # Iniciar el hilo para consumir mensajes de Kafka
     #topic = 'errores'
     threading.Thread(target=consumidorErrores, args=(TOPIC_ERRORES_MAPA, BROKER_ADDR, addError), daemon=True).start()

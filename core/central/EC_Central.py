@@ -7,6 +7,12 @@ from sqlite3 import OperationalError
 import socket
 import threading
 from kafka import KafkaConsumer, KafkaProducer
+from flask import Flask
+from flask_cors import CORS
+from datetime import datetime
+import os
+import requests
+
 
 sys.path.append('../../shared')
 from EC_Shared import *
@@ -24,7 +30,13 @@ BROKER_ADDR = None
 
 taxisConectados = [] # [1, 2, 3, 5]
 taxisLibres = [] # [2, 3]
+taxisEnBase = []
 mapa = Map()
+irBase = False
+climaAdverso = False
+
+app = Flask(__name__)
+CORS(app)
 
 def comprobarArgumentos(argumentos):
     if len(argumentos) != 4:
@@ -45,6 +57,45 @@ def asignarConstantes(argumentos):
     global BROKER_ADDR
     BROKER_ADDR = BROKER_IP+":"+str(BROKER_PORT)
     printInfo("Constantes asignadas.")
+
+def obtenerIP(ID):
+    try:
+        conexionBBDD = sqlite3.connect(DATABASE)
+        cursor = conexionBBDD.cursor()
+
+        if ID.isdigit():
+            cursor.execute("SELECT IP FROM taxis WHERE id = ?", (ID,))
+        else:
+            cursor.execute("SELECT IP FROM clientes WHERE id = ?", (ID,))
+
+        resultado = cursor.fetchone()
+        if resultado:
+            return resultado[0]
+        else:
+            printError(f"No se encontró IP para el ID {ID}.")
+            return None
+    except sqlite3.OperationalError as e:
+        printError(f"Error al obtener IP: {e}")
+        return None
+    finally:
+        conexionBBDD.close()
+
+
+def printLog(ID, message):
+    if ID == "ALL":
+        IP = "BROADCAST"
+    elif ID == "CENTRAL":
+        IP = "CENTRAL"
+    else:
+        IP = obtenerIP(ID)
+
+    fecha_actual = datetime.now().strftime("%Y-%m-%d")
+    nombre_archivo = f"log/logs_{fecha_actual}.log"
+    os.makedirs(os.path.dirname(nombre_archivo), exist_ok=True)
+
+    with open(nombre_archivo, "a") as archivo_log:
+        archivo_log.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [{IP}]- {message}\n")
+        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [{IP}]- {message}")
 
 def leerConfiguracionMapa():
     global diccionarioLocalizaciones
@@ -78,7 +129,8 @@ def leerBBDD():
         mapa.setPosition(f"cliente_{cliente[0]}", int(cliente[1].split(",")[0]), int(cliente[1].split(",")[1]))
         #printInfo(f"Cargado cliente {cliente[0]} con posición {cliente[1]}.")
     printInfo(f"Ubiación clientes cargada desde BBDD.")
-
+    
+    dbToJSON()
     conexionBBDD.close()
 
 def ejecutarSentenciaBBDD(sentencia):
@@ -90,18 +142,71 @@ def ejecutarSentenciaBBDD(sentencia):
         resultado = cursor.fetchall()
         conexionBBDD.commit()
         conexionBBDD.close()
+        dbToJSON()
         return resultado
     except Exception as a:
         printError(a)
         return None
+    
+def dbToJSON():
+    # Conexión a la base de datos SQLite
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
 
-def comprobarTaxi(idTaxi):
+    try:
+        # Consultar datos de la tabla de taxis
+        cursor.execute("SELECT id, estado, sensores, posicion, cliente, destino, token FROM taxis")
+        taxis = [
+            {
+                "id": row[0],
+                "estado": row[1],
+                "sensores": row[2],
+                "posicion": row[3],
+                "cliente": row[4],
+                "destino": row[5],
+                "token": row[6]
+            }
+            for row in cursor.fetchall()
+        ]
+
+        # Consultar datos de la tabla de clientes
+        cursor.execute("SELECT id, posicion FROM clientes")
+        clientes = [
+            {
+                "id": row[0],
+                "posicion": row[1]
+            }
+            for row in cursor.fetchall()
+        ]
+
+        # Crear el objeto JSON
+        data = {
+            "taxis": taxis,
+            "clientes": clientes
+        }
+
+        # Convertir el objeto data a una cadena JSON con formato
+        json_data = json.dumps(data, indent=4)
+        
+        enviarJSONEnTopic(json_data, TOPIC_ESTADOS_MAPA, BROKER_ADDR)
+
+    except Exception as e:
+        print(f"Error al convertir la base de datos a JSON: {e}")
+        return None
+
+    finally:
+        # Cerrar la conexión a la base de datos
+        conn.close()
+
+def comprobarTaxi(idTaxi, tokenTaxi):
     try:
         conexionBBDD = sqlite3.connect(DATABASE)
         cursor = conexionBBDD.cursor()
 
-        cursor.execute("SELECT id FROM taxis WHERE id = ?", (idTaxi,))
-        if cursor.fetchone() == None:
+        cursor.execute("SELECT token FROM taxis WHERE id = ?", (idTaxi,))
+        resultado = cursor.fetchone()
+
+        if resultado is None:
             printInfo(f"Taxi {idTaxi} no encontrado en la base de datos.")
             return False
         else:
@@ -109,8 +214,12 @@ def comprobarTaxi(idTaxi):
                 printInfo(f"Taxi {idTaxi} existe y ya está conectado.")
                 return False
             else:
-                printInfo(f"Taxi {idTaxi} existe y no está conectado.")
-            return True
+                if tokenTaxi == resultado[0]:
+                    printInfo(f"Taxi {idTaxi} autenticado con éxito.")
+                    return True
+                else:
+                    printError(f"Token incorrecto para el taxi {idTaxi}.")
+                    return False
     except sqlite3.OperationalError as msg:
         printError(msg)
         return False
@@ -138,6 +247,7 @@ def gestionarBrokerClientes():
                 printWarning(f"La localización {localizacion} no existe. Cancelando servicio a cliente {idCliente}.")
                 publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{idCliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR)
             else:
+                ejecutarSentenciaBBDD(f"UPDATE clientes SET IP = '{mensaje.key.decode(FORMAT)}' WHERE id = '{idCliente}'")
                 printDebug(f"Estado de los taxis (Conectados, Libres): {taxisConectados}, {taxisLibres}.")
                 if len(taxisLibres) < 1:
                     printWarning(f"No hay taxis disponibles. Cancelando servicio a cliente {idCliente}.")
@@ -153,7 +263,7 @@ def gestionarBrokerClientes():
                     ejecutarSentenciaBBDD(f"UPDATE taxis SET destino = '{localizacion}' WHERE id = {taxiElegido}")
 
                     publicarMensajeEnTopic(f"[EC_DE_{taxiElegido}] Servicio asignado [{idCliente}->{localizacion}]", TOPIC_ERRORES_MAPA, BROKER_ADDR)
-
+                    printLog(taxiElegido, f"Servicio asignado [{idCliente}->{localizacion}]")
         else:
             #printInfo(mensaje)
             #printInfo(mensaje.value.decode(FORMAT))
@@ -191,6 +301,7 @@ def gestionarBrokerTaxis():
 
                 ejecutarSentenciaBBDD(f"UPDATE taxis SET sensores = '{estado}' WHERE id = {idTaxi}")
                 publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Cambio su estado a: {estado}", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+                printLog(idTaxi, f"Cambio su estado a: {estado}")
 
             elif camposMensaje[1] == "MOVIMIENTO":
                 # ['EC_DigitalEngine-1->EC_Central', '(1,2)']
@@ -216,6 +327,7 @@ def gestionarBrokerTaxis():
                     publicarMensajeEnTopic(f"EC_Central->EC_Customer_{camposMensaje[3]}[RECOGIDO]", TOPIC_CLIENTES, BROKER_ADDR)
                     ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'servicio' WHERE id = {idTaxi}")
                     publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Recogido a su cliente {camposMensaje[3]}", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+                    printLog(idTaxi, f"Recogido a su cliente {camposMensaje[3]}")
                     #actualizarEstadosJSON(True, camposMensaje[3], f"OK. Taxi {idTaxi}", camposMensaje[4])
                     #actualizarEstadosJSON(False, idTaxi, f"OK. Servicio {camposMensaje[3]}", camposMensaje[4]) # TAXI
 
@@ -228,6 +340,7 @@ def gestionarBrokerTaxis():
 
                     mapa.deactivateTaxi(idTaxi)
                     publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Llevado al cliente {camposMensaje[3]} a su destino", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+                    printLog(idTaxi, f"Llevado al cliente {camposMensaje[3]} a su destino")
                     #actualizarEstadosJSON(True, camposMensaje[3], "OK. En destino", camposMensaje[4]) # CLIENTE
                     #actualizarEstadosJSON(False, idTaxi, "OK. Parado") # TAXI
 
@@ -249,7 +362,9 @@ def autenticarTaxi(conexion, direccion):
 
     camposMensaje = re.findall('[^\[\]]+', mensaje)
     idTaxi = camposMensaje[0].split("->")[0][6:]
-    if comprobarTaxi(idTaxi):
+    tokenTaxi = camposMensaje[6]
+    if comprobarTaxi(idTaxi, tokenTaxi):
+        ejecutarSentenciaBBDD(f"UPDATE taxis SET IP = '{direccion[0]}' WHERE id = {idTaxi}")
         ejecutarSentenciaBBDD(f"UPDATE taxis SET sensores = '{camposMensaje[2]}' WHERE id = {idTaxi}")
         if camposMensaje[3] != "None,None":
             printInfo(f"El taxi {idTaxi} tenía posición, por lo tanto nosotros habíamos caído.")
@@ -259,6 +374,7 @@ def autenticarTaxi(conexion, direccion):
             if camposMensaje[4] != None:
                 mapa.activateTaxi(idTaxi)
                 if camposMensaje[5] == "True":
+                    ## El cliente ha sido recogido
                     ejecutarSentenciaBBDD(f"UPDATE clientes SET posicion = '{camposMensaje[3].split(',')[0]},{camposMensaje[3].split(',')[1]}' WHERE id = {camposMensaje[4]}")
                     mapa.setPosition(f"cliente_{camposMensaje[4]}", camposMensaje[3].split(',')[0], camposMensaje[3].split(',')[1])
                     ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'servicio' WHERE id = {idTaxi}")
@@ -274,6 +390,7 @@ def autenticarTaxi(conexion, direccion):
         enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]")
 
         publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Autorizado.", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+        printLog(idTaxi, f"Taxi {idTaxi} ha sido autorizado.")
         #actualizarEstadosJSON(False, idTaxi, "OK. Parado") 
         return idTaxi
 
@@ -318,6 +435,7 @@ def gestionarTaxi(conexion, direccion):
         mapa.print()
 
         publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Su conexión ha caido.", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+        printLog(idTaxi, "Su conexión ha caido.")
 
     else:
         printInfo(f"Taxi con conexion {conexion} y {direccion} no autorizado. Desconectando...")
@@ -331,43 +449,124 @@ def gestionarLoginTaxis():
         hiloTaxi = threading.Thread(target=gestionarTaxi, args=(conexion, direccion))
         hiloTaxi.start()
 
-def enviarEstados(TOPIC_ESTADOS_MAPA, broker_addr):
+def dirigirABaseATodos():
+    global irBase
+
+    estado_anterior = irBase 
+
+    while True:
+        if climaAdverso:
+            irBase = True
+        if irBase != estado_anterior:  
+            if irBase:
+                printInfo("Enviando todos los taxis a base.")
+                publicarMensajeEnTopic(f"[EC_Central->BASE][ALL][SI]", TOPIC_TAXIS, BROKER_ADDR)
+                publicarMensajeEnTopic(f"[EC_Central] Enviando todos los taxis a base", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+                printLog("ALL", "Enviando todos los taxis a base.")
+            else:
+                printInfo("Cancelando envío a base.")
+                publicarMensajeEnTopic(f"[EC_Central->BASE][ALL][NO]", TOPIC_TAXIS, BROKER_ADDR)
+                publicarMensajeEnTopic(f"[EC_Central] Los taxis pueden salir de base y continuar su servicio", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+                printLog("ALL", "Cancelando envío a base.")
+
+            # Actualizamos el estado anterior
+            estado_anterior = irBase
+        time.sleep(1)
+
+def dirigirTaxiABase(idTaxi):
     try:
-        # Conectar a la base de datos SQLite
-        conexion = sqlite3.connect('database.db')
-        cursor = conexion.cursor()
-
-        # Consultar los datos de la tabla 'taxis'
-        cursor.execute("SELECT * FROM taxis")
-        taxis = cursor.fetchall()
-
-        # Consultar los datos de la tabla 'clientes'
-        cursor.execute("SELECT * FROM clientes")
-        clientes = cursor.fetchall()
-
-        # Convertir los datos a JSON
-        data = {
-            "taxis": [
-                {"id": taxi[0], "estado": taxi[1], "sensores": taxi[2], "posicion": taxi[3], "cliente": taxi[4], "destino": taxi[5]}
-                for taxi in taxis
-            ],
-            "clientes": [
-                {"id": cliente[0], "posicion": cliente[1]}
-                for cliente in clientes
-            ]
-        }
-
-        # Cerrar la conexión con la base de datos
-        conexion.close()
-
-        # Convertir el objeto data a una cadena JSON
-        json_data = json.dumps(data)
-
-        # Enviar el JSON a Kafka
-        enviarJSONEnTopic(json_data, TOPIC_ESTADOS_MAPA, broker_addr)
-
+        if idTaxi not in taxisConectados:
+            printError(f"Taxi {idTaxi} no está conectado.")
+            return
+        
+        if idTaxi in taxisEnBase:
+            printInfo(f"Cancelando envio a la base del taxi {idTaxi}.")
+            taxisEnBase.remove(idTaxi)
+            publicarMensajeEnTopic(f"[EC_Central->BASE][{idTaxi}][NO]", TOPIC_TAXIS, BROKER_ADDR)
+            publicarMensajeEnTopic(f"[EC_Central] Los taxis pueden salir de base y continuar su servicio", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+            printLog(idTaxi, "Cancelando envio a la base.")
+        else:
+            printInfo(f"Enviando taxi {idTaxi} a la base.")
+            taxisEnBase.append(idTaxi)
+            publicarMensajeEnTopic(f"[EC_Central->BASE][{idTaxi}][SI]", TOPIC_TAXIS, BROKER_ADDR)
+            publicarMensajeEnTopic(f"[EC_Central] Enviando taxi {idTaxi} a base", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+            printLog(idTaxi, "Enviando a la base.")
     except Exception as e:
-        print(f"Error al enviar la base de datos a Kafka: {e}")
+        raise e
+        
+
+def inputBase():
+    global irBase
+
+    threading.Thread(target=dirigirABaseATodos).start()
+
+    while True:
+        user_input = input("Introduce 'ALL' para enviar todos los taxis a base o un ID específico: ").strip()
+        
+        if user_input.upper() == "" or not user_input:
+            continue
+        if (not climaAdverso):
+            if user_input.upper() == "ALL":
+                irBase = not irBase
+                if irBase:
+                    printInfo("Se enviarán todos los taxis a la base.")
+                else:
+                    printInfo("El envío de taxis a la base ha sido cancelado.")
+            else:
+                taxiId = None
+                try:
+                    taxiId = int(user_input)
+                    dirigirTaxiABase(taxiId)
+                except Exception as e:
+                    printError(f"Error con la ID '{taxiId}': {e}")
+        else:
+            printError("No se puede actuar sobre los taxis debido al clima adverso. Todos vuelven a base")
+                
+
+def verificarClima():
+    global climaAdverso
+    IP = "http://localhost:5002/consultarClima"
+
+
+    while True:
+        try:
+            response = requests.get(IP)
+            printLog("CENTRAL", "Petición para consultar clima.")
+            if response.status_code == 200:
+                data = response.json()
+                if data["status"] == "KO":
+                    climaAdverso = True
+                    printWarning(data["message"])
+                else:
+                    climaAdverso = False
+                    printInfo(data["message"])
+
+                printLog("CENTRAL", data["message"])
+            else:
+                printError("Error al consultar el clima")
+                printLog("CENTRAL", "Error al consultar el clima")
+        except Exception as e:
+            printError(f"Error al verificar el clima: {e}")
+            printLog("CENTRAL", f"Error al verificar el clima: {e}")   
+        finally:
+            time.sleep(10)
+
+### API
+@app.route('/estadoActual-mapa', methods=['GET'])
+def estadoActual():
+    return mapa.exportJson()    
+
+@app.route('/logs', methods=['GET'])
+def obtenerLogs():
+    fecha_actual = datetime.now().strftime("%Y-%m-%d")
+    nombre_archivo = f"log/logs_{fecha_actual}.log"
+    
+    if os.path.exists(nombre_archivo):
+        with open(nombre_archivo, "r") as archivo_log:
+            contenido = archivo_log.read()
+        return contenido, 200
+    else:
+        return "No hay logs disponibles para el día de hoy.", 404
 
 def main():
     comprobarArgumentos(sys.argv)
@@ -387,11 +586,23 @@ def main():
     hiloLoginTaxis = threading.Thread(target=gestionarLoginTaxis)
     hiloLoginTaxis.start()
 
-    hiloMapa = threading.Thread(target=iniciarMapa, args=(mapa, BROKER_ADDR,))
-    hiloMapa.start()
+    #hiloMapa = threading.Thread(target=iniciarMapa, args=(mapa, BROKER_ADDR,))
+    #hiloMapa.start()
 
-    enviarEstados(TOPIC_ESTADOS_MAPA, BROKER_ADDR)
+    hiloBase = threading.Thread(target=inputBase)
+    hiloBase.start()
 
+    ##hiloApi = threading.Thread(target=app.run, kwargs={'debug': True})
+    ##hiloApi.start()
+
+    # Iniciar el hilo para verificar el clima
+    hiloClima = threading.Thread(target=verificarClima)
+    hiloClima.start()
 
 if __name__ == "__main__":
+    # Ejecuta el servidor Flask en un hilo separado
+    hiloApi = threading.Thread(target=app.run, kwargs={'debug': True, 'use_reloader': False})
+    hiloApi.start()
+
+    # Llama al resto de tu lógica principal
     main()
