@@ -2,6 +2,7 @@ from datetime import datetime
 import socket
 from kafka import KafkaConsumer, KafkaProducer
 import json
+import sys
 
 HEADER = 64
 FORMAT = 'utf-8'
@@ -20,8 +21,9 @@ def printWarning(mensaje):
 def printError(mensaje):
     print(datetime.now(), f"ERROR: {mensaje}")
 
-def printFatal(mensaje):
+def exitFatal(mensaje):
     print(datetime.now(), f"FATAL: {mensaje}")
+    sys.exit()
 
 def printDebug(mensaje):
     print(datetime.now(), f"DEBUG: {mensaje}")

@@ -121,8 +121,8 @@ def leerConfiguracionMapa():
                     #printDebug(f"Cargada localización {item['Id']} con coordenadas ({item['POS']}).")
             printInfo("Mapa cargado con éxito desde fichero.")
     except IOError as error:
-        printFatal("No se ha podido abrir el fichero.")
-        sys.exit()
+        exitFatal("No se ha podido abrir el fichero.")
+
 
 def leerBBDD():
     try:
