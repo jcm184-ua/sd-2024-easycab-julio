@@ -81,15 +81,6 @@ def obtenerIP(ID):
     finally:
         conexion.close()
 
-# TODO: Eliminar una vez se vea que ya no es necesario
-def printLog(ID, message):
-    if ID == "ALL":
-        IP = "BROADCAST"
-    elif ID == "CENTRAL":
-        IP = "CENTRAL"
-    else:
-        IP = obtenerIP(ID)
-
     fecha_actual = datetime.now().strftime("%Y-%m-%d")
     nombre_archivo = f"log/logs_{fecha_actual}.log"
     os.makedirs(os.path.dirname(nombre_archivo), exist_ok=True)
@@ -259,7 +250,7 @@ def gestionarBrokerClientes():
 
                     publicarMensajeEnTopic(f"[EC_DE_{taxiElegido}] Servicio asignado [{idCliente}->{localizacion}]", TOPIC_ERRORES_MAPA, BROKER_ADDR)
                     printInfo(f"[EC_DE_{taxiElegido}] Servicio asignado [{idCliente}->{localizacion}]")
-                    printLog(taxiElegido, f"Servicio asignado [{idCliente}->{localizacion}]")
+                    #printLog(taxiElegido, f"Servicio asignado [{idCliente}->{localizacion}]")
         else:
             #printInfo(mensaje)
             #printInfo(mensaje.value.decode(FORMAT))
@@ -298,7 +289,7 @@ def gestionarBrokerTaxis():
                 ejecutarSentenciaBBDD(f"UPDATE taxis SET sensores = '{estado}' WHERE id = {idTaxi}")
                 publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Cambio su estado a: {estado}", TOPIC_ERRORES_MAPA, BROKER_ADDR)
                 printInfo(f"[EC_DE_{idTaxi}] Cambio su estado a: {estado}")
-                printLog(idTaxi, f"Cambio su estado a: {estado}")
+                #printLog(idTaxi, f"Cambio su estado a: {estado}")
 
             elif camposMensaje[1] == "MOVIMIENTO":
                 # ['EC_DigitalEngine-1->EC_Central', '(1,2)']
@@ -325,7 +316,7 @@ def gestionarBrokerTaxis():
                     ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'servicio' WHERE id = {idTaxi}")
                     publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Recogido a su cliente {camposMensaje[3]}", TOPIC_ERRORES_MAPA, BROKER_ADDR)
                     printInfo(f"[EC_DE_{idTaxi}] Recogido a su cliente {camposMensaje[3]}")
-                    printLog(idTaxi, f"Recogido a su cliente {camposMensaje[3]}")
+                    #printLog(idTaxi, f"Recogido a su cliente {camposMensaje[3]}")
                     #actualizarEstadosJSON(True, camposMensaje[3], f"OK. Taxi {idTaxi}", camposMensaje[4])
                     #actualizarEstadosJSON(False, idTaxi, f"OK. Servicio {camposMensaje[3]}", camposMensaje[4]) # TAXI
 
@@ -339,7 +330,7 @@ def gestionarBrokerTaxis():
                     mapa.deactivateTaxi(idTaxi)
                     publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Llevado al cliente {camposMensaje[3]} a su destino", TOPIC_ERRORES_MAPA, BROKER_ADDR)
                     printInfo(f"[EC_DE_{idTaxi}] Llevado al cliente {camposMensaje[3]} a su destino")
-                    printLog(idTaxi, f"Llevado al cliente {camposMensaje[3]} a su destino")
+                    #printLog(idTaxi, f"Llevado al cliente {camposMensaje[3]} a su destino")
                     #actualizarEstadosJSON(True, camposMensaje[3], "OK. En destino", camposMensaje[4]) # CLIENTE
                     #actualizarEstadosJSON(False, idTaxi, "OK. Parado") # TAXI
 
@@ -390,7 +381,7 @@ def autenticarTaxi(conexion, direccion):
 
         publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Autorizado.", TOPIC_ERRORES_MAPA, BROKER_ADDR)
         printInfo(f"[EC_DE_{idTaxi}] Autorizado.")
-        printLog(idTaxi, f"Taxi {idTaxi} ha sido autorizado.")
+        #printLog(idTaxi, f"Taxi {idTaxi} ha sido autorizado.")
         #actualizarEstadosJSON(False, idTaxi, "OK. Parado")
         return idTaxi
 
@@ -436,7 +427,7 @@ def gestionarTaxi(conexion, direccion):
 
         publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Su conexión ha caido.", TOPIC_ERRORES_MAPA, BROKER_ADDR)
         printInfo(f"[EC_DE_{idTaxi}] Su conexión ha caido.")
-        printLog(idTaxi, "Su conexión ha caido.")
+        #printLog(idTaxi, "Su conexión ha caido.")
 
     else:
         printInfo(f"Taxi con conexion {conexion} y {direccion} no autorizado. Desconectando...")
@@ -463,12 +454,12 @@ def dirigirABaseATodos():
                 publicarMensajeEnTopic(f"[EC_Central->BASE][ALL][SI]", TOPIC_TAXIS, BROKER_ADDR)
                 publicarMensajeEnTopic(f"[EC_Central] Enviando todos los taxis a base", TOPIC_ERRORES_MAPA, BROKER_ADDR)
                 printInfo("Enviando todos los taxis a base.")
-                printLog("ALL", "Enviando todos los taxis a base.")
+                #printLog("ALL", "Enviando todos los taxis a base.")
             else:
                 publicarMensajeEnTopic(f"[EC_Central->BASE][ALL][NO]", TOPIC_TAXIS, BROKER_ADDR)
                 publicarMensajeEnTopic(f"[EC_Central] Los taxis pueden salir de base y continuar su servicio", TOPIC_ERRORES_MAPA, BROKER_ADDR)
                 printInfo("Cancelando envío a base.")
-                printLog("ALL", "Cancelando envío a base.")
+                #printLog("ALL", "Cancelando envío a base.")
 
             # Actualizamos el estado anterior
             estado_anterior = irBase
@@ -485,13 +476,13 @@ def dirigirTaxiABase(idTaxi):
             publicarMensajeEnTopic(f"[EC_Central->BASE][{idTaxi}][NO]", TOPIC_TAXIS, BROKER_ADDR)
             publicarMensajeEnTopic(f"[EC_Central] Los taxis pueden salir de base y continuar su servicio", TOPIC_ERRORES_MAPA, BROKER_ADDR)
             printInfo(f"Cancelando envio a la base del taxi {idTaxi}.")
-            printLog(idTaxi, "Cancelando envio a la base.")
+            #printLog(idTaxi, "Cancelando envio a la base.")
         else:
             taxisEnBase.append(idTaxi)
             publicarMensajeEnTopic(f"[EC_Central->BASE][{idTaxi}][SI]", TOPIC_TAXIS, BROKER_ADDR)
             publicarMensajeEnTopic(f"[EC_Central] Enviando taxi {idTaxi} a base", TOPIC_ERRORES_MAPA, BROKER_ADDR)
             printInfo(f"Enviando taxi {idTaxi} a la base.")
-            printLog(idTaxi, "Enviando a la base.")
+            #printLog(idTaxi, "Enviando a la base.")
     except Exception as e:
         raise e
 
@@ -532,7 +523,7 @@ def verificarClima():
         try:
             response = requests.get(WEATHER_SERVER)
             printInfo("Petición para consultar clima.")
-            printLog("CENTRAL", "Petición para consultar clima.")
+            #printLog("CENTRAL", "Petición para consultar clima.")
             if response.status_code == 200:
                 data = response.json()
                 if data["status"] == "KO":
@@ -542,13 +533,13 @@ def verificarClima():
                     climaAdverso = False
                     printInfo(data["message"])
 
-                printLog("CENTRAL", data["message"])
+                #printLog("CENTRAL", data["message"])
             else:
                 printError("Error al consultar el clima.")
-                printLog("CENTRAL", "Error al consultar el clima.")
+                #printLog("CENTRAL", "Error al consultar el clima.")
         except Exception as e:
             printWarning(f"Servidor de clima innacesible.")
-            printLog("CENTRAL", f"Servidor de clima innacesible.")
+            #printLog("CENTRAL", f"Servidor de clima innacesible.")
         finally:
             time.sleep(10)
 

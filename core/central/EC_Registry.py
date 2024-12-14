@@ -13,36 +13,6 @@ DATABASE_PASSWORD = 'sd2024_registry'
 
 app = Flask(__name__)
 
-# Helper function
-def obtenerIP(ID):
-    conexion, cursor = generarConexionBBDD(DATABASE_USER, DATABASE_PASSWORD)
-
-    try:
-        cursor.execute("SELECT IP FROM taxis WHERE id = %s", (ID,))
-        resultado = cursor.fetchone()
-        conexion.close()
-        if resultado:
-            return resultado['IP']
-        else:
-            printError(f"No se encontró IP para el ID {ID}.")
-            return None
-    except Exception as e:
-        conexion.close()
-        printError(f"Error al obtener IP: {e}")
-        return None
-
-# TODO: Eliminar una vez se vea que ya no es necesario
-def printLog(ID, message):
-    IP = obtenerIP(ID)
-
-    fecha_actual = datetime.now().strftime("%Y-%m-%d")
-    nombre_archivo = f"log/logs_{fecha_actual}.log"
-    os.makedirs(os.path.dirname(nombre_archivo), exist_ok=True)
-
-    with open(nombre_archivo, "a") as archivo_log:
-        archivo_log.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [{IP}]- {message}\n")
-        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [{IP}]- {message}")
-
 @app.route("/registrar", methods=["PUT"])
 def registrarTaxi():
     """
@@ -70,7 +40,7 @@ def registrarTaxi():
     conexion.close()
 
     printInfo(f"Taxi {taxi_id} se ha registrado")
-    printLog(taxi_id, f"Taxi {taxi_id} se ha registrado")
+    #printLog(taxi_id, f"Taxi {taxi_id} se ha registrado")
 
     return jsonify({"message": f"Registrado", "token": token}), 201
 
@@ -87,7 +57,7 @@ def borrarTaxi(taxi_id):
         return jsonify({"error": f"Taxi {taxi_id} no está registrado"}), 404
 
     printInfo(f"Taxi {taxi_id} ha sido dado de baja")
-    printLog(taxi_id, f"Taxi {taxi_id} ha sido dado de baja")
+    #printLog(taxi_id, f"Taxi {taxi_id} ha sido dado de baja")
 
     cursor.execute("DELETE FROM taxis WHERE id = %s", (taxi_id,))
     conexion.commit()

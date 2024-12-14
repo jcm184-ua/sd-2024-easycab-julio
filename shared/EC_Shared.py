@@ -30,6 +30,33 @@ class COLORES_ANSI:
     BACKGROUD_RED = '\033[101m'
     END_C = '\033[0m'
 
+# TODO: Eliminar una vez se vea que ya no es necesario
+"""def printLog(ID, message):
+    if ID == "ALL":
+        IP = "BROADCAST"
+    elif ID == "CENTRAL":
+        IP = "CENTRAL"
+    else:
+        IP = obtenerIP(ID)"""
+
+# Helper function ¿CHATGPT/COPILOT? ¿Para que quieres las IPs en los logs teniendo IDs?
+"""def obtenerIP(ID):
+    conexion, cursor = generarConexionBBDD(DATABASE_USER, DATABASE_PASSWORD)
+
+    try:
+        cursor.execute("SELECT IP FROM taxis WHERE id = %s", (ID,))
+        resultado = cursor.fetchone()
+        conexion.close()
+        if resultado:
+            return resultado['IP']
+        else:
+            printError(f"No se encontró IP para el ID {ID}.")
+            return None
+    except Exception as e:
+        conexion.close()
+        printError(f"Error al obtener IP: {e}")
+        return None """
+
 def printDebug(mensaje):
     print(datetime.now(), f"DEBUG: {mensaje}")
     writeLog(datetime.now(), f"DEBUG: {mensaje}")
