@@ -3,6 +3,7 @@ import socket
 from kafka import KafkaConsumer, KafkaProducer
 import json
 import sys
+import mariadb
 
 HEADER = 64
 FORMAT = 'utf-8'
@@ -11,6 +12,11 @@ TOPIC_TAXIS = 'TAXIS'
 TOPIC_CLIENTES = 'CLIENTES'
 TOPIC_ERRORES_MAPA = 'ERRORES_MAPA'
 TOPIC_ESTADOS_MAPA = 'ESTADOS_MAPA'
+
+DATABASE_IP = '127.0.0.1'
+DATABASE_PORT = 3306
+DATABASE = 'easycab'
+
 
 def printInfo(mensaje):
     print(datetime.now(), f"INFO: {mensaje}")
@@ -120,3 +126,20 @@ def enviarJSONEnTopic(data, topic, broker_addr):
     finally:
         conexion.close()
         printInfo("Desconectado del broker como productor.")
+
+def generarConexionBBDD(usuario, contrasena):
+    try:
+        conexion = mariadb.connect(
+            user=usuario,
+            password=contrasena,
+            host=DATABASE_IP,
+            port=DATABASE_PORT,
+            database=DATABASE)
+        cursor = conexion.cursor()
+    except Exception as e:
+        printDebug(e.__class__)
+        printError(f"Excepción producida al conectar a la base de datos: {e}.")
+        exitFatal("No se pudo conectar a la base de datos.")
+        return None, None
+
+    return conexion, cursor

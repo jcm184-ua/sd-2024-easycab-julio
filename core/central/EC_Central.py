@@ -27,9 +27,6 @@ BROKER_PORT = None
 BROKER_ADDR = None
 DATABASE_USER = 'ec_central'
 DATABASE_PASSWORD = 'sd2024_central'
-DATABASE_IP = '127.0.0.1'
-DATABASE_PORT = 3306
-DATABASE = 'easycab'
 
 taxisConectados = [] # [1, 2, 3, 5]
 taxisLibres = [] # [2, 3]
@@ -63,17 +60,9 @@ def asignarConstantes(argumentos):
 
 def obtenerIP(ID):
     try:
-        try:
-            conexion = mariadb.connect(
-                user=DATABASE_USER,
-                password=DATABASE_PASSWORD,
-                host=DATABASE_IP,
-                port=DATABASE_PORT,
-                database=DATABASE)
-        except mariadb.Error as e:
-            printError(f"Excepción producida al conectar a la base de datos: {e}.")
-            sys.exit(1)
-        cursor = conexion.cursor()
+        conexion, cursor = generarConexionBBDD(DATABASE_USER, DATABASE_PASSWORD)
+        if conexion is None:
+            exitFatal("OBTENer IP: No se ha podido conectar a la base de datos.")
 
         if ID.isdigit():
             cursor.execute("SELECT IP FROM taxis WHERE id = ?", (ID,))
@@ -125,17 +114,7 @@ def leerConfiguracionMapa():
 
 
 def leerBBDD():
-    try:
-        conexion = mariadb.connect(
-            user=DATABASE_USER,
-            password=DATABASE_PASSWORD,
-            host=DATABASE_IP,
-            port=DATABASE_PORT,
-            database=DATABASE)
-    except mariadb.Error as e:
-        printError(f"Excepción producida al conectar a la base de datos: {e}.")
-        sys.exit(1)
-    cursor = conexion.cursor()
+    conexion, cursor = generarConexionBBDD(DATABASE_USER, DATABASE_PASSWORD)
 
     cursor.execute("SELECT id, posicion FROM taxis")
     taxis = cursor.fetchall()
@@ -155,13 +134,7 @@ def leerBBDD():
 
 def ejecutarSentenciaBBDD(sentencia):
     try:
-        conexion = mariadb.connect(
-            user=DATABASE_USER,
-            password=DATABASE_PASSWORD,
-            host=DATABASE_IP,
-            port=DATABASE_PORT,
-            database=DATABASE)
-        cursor = conexion.cursor()
+        conexion, cursor = generarConexionBBDD(DATABASE_USER, DATABASE_PASSWORD)
         cursor.execute(sentencia)
         resultado = cursor.fetchall()
         conexion.commit()
@@ -173,17 +146,7 @@ def ejecutarSentenciaBBDD(sentencia):
         return None
 
 def dbToJSON():
-    try:
-        conexion = mariadb.connect(
-            user=DATABASE_USER,
-            password=DATABASE_PASSWORD,
-            host=DATABASE_IP,
-            port=DATABASE_PORT,
-            database=DATABASE)
-        cursor = conexion.cursor()
-    except Exception as a:
-        printError(a)
-        return None
+    conexion, cursor = generarConexionBBDD(DATABASE_USER, DATABASE_PASSWORD)
 
     try:
         # Consultar datos de la tabla de taxis
@@ -232,13 +195,7 @@ def dbToJSON():
 
 def comprobarTaxi(idTaxi, tokenTaxi):
     try:
-        conexion = mariadb.connect(
-            user=DATABASE_USER,
-            password=DATABASE_PASSWORD,
-            host=DATABASE_IP,
-            port=DATABASE_PORT,
-            database=DATABASE)
-        cursor = conexion.cursor()
+        conexion, cursor = generarConexionBBDD(DATABASE_USER, DATABASE_PASSWORD)
 
         cursor.execute("SELECT token FROM taxis WHERE id = ?", (idTaxi,))
         resultado = cursor.fetchone()

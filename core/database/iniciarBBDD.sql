@@ -2,6 +2,7 @@ USE easycab;
 DROP TABLE IF EXISTS taxis;
 DROP TABLE IF EXISTS clientes;
 DROP USER IF EXISTS 'ec_central'@'';
+DROP USER IF EXISTS 'ec_registry'@'';
 
 CREATE TABLE IF NOT EXISTS taxis (
     id VARCHAR(255) PRIMARY KEY,
@@ -32,5 +33,7 @@ INSERT INTO clientes (id, posicion) VALUES ("e", "7,8");
 INSERT INTO clientes (id, posicion) VALUES ("f", " 13, 14");
 
 CREATE USER 'ec_central'@'%' IDENTIFIED BY 'sd2024_central';
+CREATE USER 'ec_registry'@'%' IDENTIFIED BY 'sd2024_registry';
 GRANT ALL PRIVILEGES ON easycab.* TO 'ec_central'@'%';
+GRANT ALL PRIVILEGES ON easycab.* TO 'ec_registry'@'%';
 FLUSH PRIVILEGES;
