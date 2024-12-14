@@ -20,6 +20,9 @@ def printWarning(mensaje):
 def printError(mensaje):
     print(datetime.now(), f"ERROR: {mensaje}")
 
+def printFatal(mensaje):
+    print(datetime.now(), f"FATAL: {mensaje}")
+
 def printDebug(mensaje):
     print(datetime.now(), f"DEBUG: {mensaje}")
 
@@ -108,10 +111,10 @@ def enviarJSONEnTopic(data, topic, broker_addr):
         # Enviar el mensaje al topic
         conexion.send(topic, data.encode(FORMAT))  # Asegúrate de que FORMAT es correcto
         conexion.flush()
-            
+
     except Exception as e:
         print(f"Error al enviar el mensaje JSON en el topic: {e}")
-    
+
     finally:
         conexion.close()
         printInfo("Desconectado del broker como productor.")
