@@ -18,6 +18,9 @@ DATABASE_IP = '127.0.0.1'
 DATABASE_PORT = 3306
 DATABASE = 'easycab'
 
+def printDebug(mensaje):
+    print(datetime.now(), f"DEBUG: {mensaje}")
+    writeLog(datetime.now(), f"DEBUG: {mensaje}")
 
 def printInfo(mensaje):
     print(datetime.now(), f"INFO: {mensaje}")
@@ -34,11 +37,7 @@ def printError(mensaje):
 def exitFatal(mensaje):
     print(datetime.now(), f"FATAL: {mensaje}")
     writeLog(datetime.now(), f"FATAL: {mensaje}")
-    sys.exit()
-
-def printDebug(mensaje):
-    print(datetime.now(), f"DEBUG: {mensaje}")
-    writeLog(datetime.now(), f"DEBUG: {mensaje}")
+    os._exit(1)
 
 def writeLog(datetimeNow, message):
     fechaActual = datetime.now().strftime("%Y-%m-%d")
@@ -113,19 +112,29 @@ def recibirMensajeClienteSilent(socket):
         return mensaje
 
 def conectarBrokerConsumidor(broker_addr, topic):
-    printInfo(f"Conectando al broker en la dirección ({broker_addr}), topic {topic} como consumidor.")
-    # return KafkaConsumer('CLIENTES',bootstrap_servers=CONEXION,auto_offset_reset='earliest')
-    return KafkaConsumer(topic,bootstrap_servers=broker_addr)
+    try:
+        printInfo(f"Conectando al broker en la dirección ({broker_addr}), topic {topic} como consumidor.")
+        # return KafkaConsumer('CLIENTES',bootstrap_servers=CONEXION,auto_offset_reset='earliest')
+        return KafkaConsumer(topic,bootstrap_servers=broker_addr)
+
+    except Exception as e:
+        # Broker no tiene que ser resiliente
+        exitFatal(f"Error al conectar al broker como consumidor: {e}.")
 
 def publicarMensajeEnTopic(mensaje, topic, broker_addr):
-    printInfo(f"Conectando al broker en la dirección ({broker_addr}) como productor.")
-    conexion = KafkaProducer(bootstrap_servers=broker_addr)
-    conexion.send(topic,(mensaje.encode(FORMAT)))
-    printInfo(f"Mensaje {mensaje} publicado en topic {topic}.")
-    # TODO: Fallo de publicación.
-    conexion.close()
-    printInfo("Desconectado del broker como productor.")
+    try:
+        printInfo(f"Conectando al broker en la dirección ({broker_addr}) como productor.")
+        conexion = KafkaProducer(bootstrap_servers=broker_addr)
+        conexion.send(topic,(mensaje.encode(FORMAT)))
+        printInfo(f"Mensaje {mensaje} publicado en topic {topic}.")
+        conexion.close()
+        printInfo("Desconectado del broker como productor.")
 
+    except Exception as e:
+        # Broker no tiene que ser resiliente
+        exitFatal(f"Error al publicar mensaje en el topic: {e}.")
+
+#TODO: Esto porque no usa publicarMensajeEnTopic ??
 def enviarJSONEnTopic(data, topic, broker_addr):
     try:
         conexion = KafkaProducer(bootstrap_servers=broker_addr)
@@ -133,13 +142,12 @@ def enviarJSONEnTopic(data, topic, broker_addr):
         # Enviar el mensaje al topic
         conexion.send(topic, data.encode(FORMAT))  # Asegúrate de que FORMAT es correcto
         conexion.flush()
-
-    except Exception as e:
-        print(f"Error al enviar el mensaje JSON en el topic: {e}")
-
-    finally:
         conexion.close()
         printInfo("Desconectado del broker como productor.")
+
+    except Exception as e:
+        # Broker no tiene que ser resiliente
+        exitFatal(f"Error al enviar el mensaje JSON en el topic: {e}")
 
 def generarConexionBBDD(usuario, contrasena):
     try:
@@ -150,10 +158,8 @@ def generarConexionBBDD(usuario, contrasena):
             port=DATABASE_PORT,
             database=DATABASE)
         cursor = conexion.cursor()
-    except Exception as e:
-        printDebug(e.__class__)
-        printError(f"Excepción producida al conectar a la base de datos: {e}.")
-        exitFatal("No se pudo conectar a la base de datos.")
-        return None, None
+        return conexion, cursor
 
-    return conexion, cursor
+    except Exception as e:
+        # Base de datos no tiene que ser resiliente
+        exitFatal(f"No se pudo conectar a la base de datos. {e}")

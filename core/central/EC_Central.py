@@ -61,8 +61,6 @@ def asignarConstantes(argumentos):
 def obtenerIP(ID):
     try:
         conexion, cursor = generarConexionBBDD(DATABASE_USER, DATABASE_PASSWORD)
-        if conexion is None:
-            exitFatal("OBTENer IP: No se ha podido conectar a la base de datos.")
 
         if ID.isdigit():
             cursor.execute("SELECT IP FROM taxis WHERE id = ?", (ID,))
