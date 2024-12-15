@@ -13,7 +13,7 @@ DATABASE_PASSWORD = 'sd2024_registry'
 
 app = Flask(__name__)
 
-#NO FUNCIONA BIEN
+#NO FUNCIONA BIEN, NO TIENE QUE DEVOLVER TOKEN, SOLO AÑADIRLO A LA BBDD
 """ PUT http://127.0.0.1:5001/registrar ->
 <!doctype html>
 <html lang=en>
