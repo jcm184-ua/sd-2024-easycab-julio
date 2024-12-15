@@ -242,7 +242,7 @@ def gestionarBrokerClientes():
                     printWarning(f"La localización {localizacion} no existe. Cancelando servicio a cliente {idCliente}.")
                     publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{idCliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR)
                 else:
-                    ejecutarSentenciaBBDD(f"UPDATE clientes SET IP = '{mensaje.key.decode(FORMAT)}' WHERE id = '{idCliente}'")
+                    ejecutarSentenciaBBDD(f"UPDATE clientes SET IP = '{mensaje.key.decode(FORMAT)}' WHERE id = '{idCliente}'", DATABASE_USER, DATABASE_PASSWORD)
                     printDebug(f"Estado de los taxis (Conectados, Libres): {taxisConectados}, {taxisLibres}.")
                     if len(taxisLibres) < 1:
                         printWarning(f"No hay taxis disponibles. Cancelando servicio a cliente {idCliente}.")
@@ -253,9 +253,9 @@ def gestionarBrokerClientes():
                         mapa.activateTaxi(taxiElegido)
                         publicarMensajeEnTopic(f"[EC_Central->EC_DE_{taxiElegido}][{BROADCAST_TOKEN}][SERVICIO][{idCliente}->{localizacion}]", TOPIC_TAXIS, BROKER_ADDR)
 
-                        ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'enCamino' WHERE id = {taxiElegido}")
-                        ejecutarSentenciaBBDD(f"UPDATE taxis SET cliente = '{idCliente}' WHERE id = {taxiElegido}")
-                        ejecutarSentenciaBBDD(f"UPDATE taxis SET destino = '{localizacion}' WHERE id = {taxiElegido}")
+                        ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'enCamino' WHERE id = {taxiElegido}", DATABASE_USER, DATABASE_PASSWORD)
+                        ejecutarSentenciaBBDD(f"UPDATE taxis SET cliente = '{idCliente}' WHERE id = {taxiElegido}", DATABASE_USER, DATABASE_PASSWORD)
+                        ejecutarSentenciaBBDD(f"UPDATE taxis SET destino = '{localizacion}' WHERE id = {taxiElegido}", DATABASE_USER, DATABASE_PASSWORD)
 
                         publicarMensajeEnTopic(f"[EC_DE_{taxiElegido}] Servicio asignado [{idCliente}->{localizacion}]", TOPIC_ERRORES_MAPA, BROKER_ADDR)
                         printInfo(f"[EC_DE_{taxiElegido}] Servicio asignado [{idCliente}->{localizacion}]")
@@ -301,7 +301,7 @@ def gestionarBrokerTaxis():
                 elif estado == "KO":
                     mapa.deactivateTaxi(idTaxi)
 
-                ejecutarSentenciaBBDD(f"UPDATE taxis SET sensores = '{estado}' WHERE id = {idTaxi}")
+                ejecutarSentenciaBBDD(f"UPDATE taxis SET sensores = '{estado}' WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
                 publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Cambio su estado a: {estado}", TOPIC_ERRORES_MAPA, BROKER_ADDR)
                 printInfo(f"[EC_DE_{idTaxi}] Cambio su estado a: {estado}")
                 #printLog(idTaxi, f"Cambio su estado a: {estado}")
@@ -311,12 +311,12 @@ def gestionarBrokerTaxis():
                 posX = int(camposMensaje[3].split(",")[0])
                 posY = int(camposMensaje[3].split(",")[1])
                 printInfo(f"Movimiento ({posX},{posY}) recibido del taxi {idTaxi}.")
-                ejecutarSentenciaBBDD(f"UPDATE taxis SET posicion = '{posX},{posY}' WHERE id = {idTaxi}")
+                ejecutarSentenciaBBDD(f"UPDATE taxis SET posicion = '{posX},{posY}' WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
                 # Si el taxi tiene un cliente, moverlo también
-                taxiBBDD = ejecutarSentenciaBBDD(f"SELECT * FROM taxis WHERE id = {idTaxi}")
+                taxiBBDD = ejecutarSentenciaBBDD(f"SELECT * FROM taxis WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
                 if taxiBBDD[0][1] == "servicio":
                     idCliente = taxiBBDD[0][4]
-                    ejecutarSentenciaBBDD(f"UPDATE clientes SET posicion = '{posX},{posY}' WHERE id = '{idCliente}'")
+                    ejecutarSentenciaBBDD(f"UPDATE clientes SET posicion = '{posX},{posY}' WHERE id = '{idCliente}'", DATABASE_USER, DATABASE_PASSWORD)
                     mapa.move(f"cliente_{idCliente}", posX, posY)
 
                 mapa.move(f"taxi_{idTaxi}", posX, posY)
@@ -326,7 +326,7 @@ def gestionarBrokerTaxis():
             elif camposMensaje[2] == "SERVICIO":
                 if camposMensaje[3] == "CLIENTE_RECOGIDO":
                     publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{camposMensaje[4]}][RECOGIDO]", TOPIC_CLIENTES, BROKER_ADDR)
-                    ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'servicio' WHERE id = {idTaxi}")
+                    ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'servicio' WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
                     publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Recogido a su cliente {camposMensaje[4]}", TOPIC_ERRORES_MAPA, BROKER_ADDR)
                     printInfo(f"[EC_DE_{idTaxi}] Recogido a su cliente {camposMensaje[4]}")
                     #printLog(idTaxi, f"Recogido a su cliente {camposMensaje[4]}")
@@ -348,9 +348,9 @@ def gestionarBrokerTaxis():
                     #actualizarEstadosJSON(False, idTaxi, "OK. Parado") # TAXI
 
                     taxisLibres.append(idTaxi)
-                    ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'esperando' WHERE id = {idTaxi}")
-                    ejecutarSentenciaBBDD(f"UPDATE taxis SET cliente = NULL WHERE id = {idTaxi}")
-                    ejecutarSentenciaBBDD(f"UPDATE taxis SET destino = NULL WHERE id = {idTaxi}")
+                    ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'esperando' WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
+                    ejecutarSentenciaBBDD(f"UPDATE taxis SET cliente = NULL WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
+                    ejecutarSentenciaBBDD(f"UPDATE taxis SET destino = NULL WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
         else:
             #printInfo(mensaje)
             #printInfo(mensaje.value.decode(FORMAT))
@@ -372,28 +372,28 @@ def autenticarTaxi(conexion, direccion):
         enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][NOT_AUTHORIZED]")
         return -1
 
-    ejecutarSentenciaBBDD(f"UPDATE taxis SET IP = '{direccion[0]}' WHERE id = {idTaxi}")
-    ejecutarSentenciaBBDD(f"UPDATE taxis SET sensores = '{camposMensaje[2]}' WHERE id = {idTaxi}")
-    ejecutarSentenciaBBDD(f"UPDAte taxis SET token = '{tokenTaxi}' WHERE id = {idTaxi}")
+    ejecutarSentenciaBBDD(f"UPDATE taxis SET IP = '{direccion[0]}' WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
+    ejecutarSentenciaBBDD(f"UPDATE taxis SET sensores = '{camposMensaje[2]}' WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
+    ejecutarSentenciaBBDD(f"UPDAte taxis SET token = '{tokenTaxi}' WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
     if camposMensaje[3] != "None,None":
         printInfo(f"El taxi {idTaxi} tenía posición, por lo tanto nosotros habíamos caído.")
         # Si el taxi estaba realizando un servicio en el momento de nuestra caída comprobar si lo ha finalizado y notificar al cliente
-        ejecutarSentenciaBBDD(f"UPDATE taxis SET posicion = '{camposMensaje[3].split(',')[0]},{camposMensaje[3].split(',')[1]}' WHERE id = {idTaxi}")
+        ejecutarSentenciaBBDD(f"UPDATE taxis SET posicion = '{camposMensaje[3].split(',')[0]},{camposMensaje[3].split(',')[1]}' WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
         mapa.setPosition(f"taxi_{idTaxi}", camposMensaje[3].split(',')[0], camposMensaje[3].split(',')[1])
         if camposMensaje[4] != None:
             mapa.activateTaxi(idTaxi)
             if camposMensaje[5] == "True":
                 ## El cliente ha sido recogido
-                ejecutarSentenciaBBDD(f"UPDATE clientes SET posicion = '{camposMensaje[3].split(',')[0]},{camposMensaje[3].split(',')[1]}' WHERE id = {camposMensaje[4]}")
+                ejecutarSentenciaBBDD(f"UPDATE clientes SET posicion = '{camposMensaje[3].split(',')[0]},{camposMensaje[3].split(',')[1]}' WHERE id = {camposMensaje[4]}", DATABASE_USER, DATABASE_PASSWORD)
                 mapa.setPosition(f"cliente_{camposMensaje[4]}", camposMensaje[3].split(',')[0], camposMensaje[3].split(',')[1])
-                ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'servicio' WHERE id = {idTaxi}")
+                ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'servicio' WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
             else:
-                ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'enCamino' WHERE id = {idTaxi}")
+                ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'enCamino' WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
             taxisLibres.remove(idTaxi)
     else:
         printInfo(f"El taxi {idTaxi} acaba de arrancar.")
     #[EC_Central->EC_DE_1][AUTHORIZED][1,2][Cliente][Destino]
-    taxiBBDD = ejecutarSentenciaBBDD(f"SELECT * FROM taxis WHERE id = {idTaxi}")
+    taxiBBDD = ejecutarSentenciaBBDD(f"SELECT * FROM taxis WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
 
     enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][AUTHORIZED][{tokenTaxi}][{BROADCAST_TOKEN}][{taxiBBDD[0][3].split(',')[0]},{taxiBBDD[0][3].split(',')[1]}][{taxiBBDD[0][4]}][{taxiBBDD[0][5]}]")
     enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][{BROADCAST_TOKEN}][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]")
@@ -429,15 +429,15 @@ def gestionarTaxi(conexion, direccion):
             taxisLibres.remove(idTaxi)
         else:
         #if taxiBBDD[0][1] == "enCamino" or taxiBBDD[0][1] == "servicio":
-            cliente = ejecutarSentenciaBBDD(f"SELECT cliente FROM taxis WHERE id = {idTaxi}")[0][0]
+            cliente = ejecutarSentenciaBBDD(f"SELECT cliente FROM taxis WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)[0][0]
             printWarning(f"Cancelando servicio a cliente {cliente} por caída de su taxi.")
             publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{cliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR)
-            ejecutarSentenciaBBDD(f"UPDATE taxis SET cliente = NULL WHERE id = {idTaxi}")
-            ejecutarSentenciaBBDD(f"UPDATE taxis SET destino = NULL WHERE id = {idTaxi}")
+            ejecutarSentenciaBBDD(f"UPDATE taxis SET cliente = NULL WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
+            ejecutarSentenciaBBDD(f"UPDATE taxis SET destino = NULL WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
 
         mapa.deactivateTaxi(idTaxi)
-        ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'desconectado' WHERE id = {idTaxi}")
-        ejecutarSentenciaBBDD(f"UPDATE taxis SET token = NULL WHERE id = {idTaxi}")
+        ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'desconectado' WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
+        ejecutarSentenciaBBDD(f"UPDATE taxis SET token = NULL WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
 
         mapa.print()
 
