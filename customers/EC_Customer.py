@@ -19,8 +19,7 @@ servicios = []
 
 def comprobarArgumentos(argumentos):
     if len(argumentos) != 4:
-        printError("Necesito estos argumentos: <BROKER_IP> <BROKER_PORT> <ID>")
-        exit()
+        exitFatal("Necesito estos argumentos: <BROKER_IP> <BROKER_PORT> <ID>")
     printInfo("Número de argumentos correcto.")
 
 def asignarConstantes(argumentos):
@@ -46,8 +45,7 @@ def leerServicios():
             #printDebug(servicios)
             printInfo("Servicios cargados con éxito.")
     except IOError as error:
-        printInfo("FATAL: No se ha podido abrir el fichero.")
-        sys.exit()
+        exitFatal("No se ha podido abrir el fichero.")
 
 
 def esperarMensaje():

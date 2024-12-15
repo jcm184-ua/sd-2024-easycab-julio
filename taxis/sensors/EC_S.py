@@ -15,8 +15,7 @@ estadoSensor = True
 
 def comprobarArgumentos(argumentos):
     if len(argumentos) != 3:
-        printError("Necesito estos argumentos: <TAXI_IP> <TAXI_PORT>")
-        exit()
+        exitFatal("Necesito estos argumentos: <TAXI_IP> <TAXI_PORT>")        
     printInfo(f"Número de argumentos correcto.")
 
 def asignarConstantes(argumentos):
@@ -53,9 +52,9 @@ def gestionarConexionTaxi():
 
 def printMenu():
     if estadoSensor:
-        print("\nPresione [Enter] para generar una incidencia...\n")
+        print(f"{COLORES_ANSI.BLUE}Presione [Enter] para generar una incidencia.{COLORES_ANSI.END_C}")
     else:
-        print("\nPresione [Enter] para finalizar la incidencia...\n")
+        print(f"{COLORES_ANSI.BLUE}Presione [Enter] para finalizar la incidencia.{COLORES_ANSI.END_C}")
 
 def gestionarCambioEstado():
     global estadoSensor
