@@ -15,8 +15,7 @@ estadoSensor = True
 
 def comprobarArgumentos(argumentos):
     if len(argumentos) != 3:
-        printError("Necesito estos argumentos: <TAXI_IP> <TAXI_PORT>")
-        exit()
+        exitFatal("Necesito estos argumentos: <TAXI_IP> <TAXI_PORT>")        
     printInfo(f"Número de argumentos correcto.")
 
 def asignarConstantes(argumentos):

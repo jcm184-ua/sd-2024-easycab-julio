@@ -48,8 +48,7 @@ CORS(app)
 
 def comprobarArgumentos(argumentos):
     if len(argumentos) != 4:
-        printError("Necesito estos argumentos: <LISTEN_PORT> <BROKER_IP> <BROKER_PORT>")
-        exit()
+        exitFatal("Necesito estos argumentos: <LISTEN_PORT> <BROKER_IP> <BROKER_PORT>")        
     printInfo("Número de argumentos correcto.")
 
 def asignarConstantes(argumentos):

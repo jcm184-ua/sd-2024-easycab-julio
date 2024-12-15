@@ -51,8 +51,7 @@ irBase = False
 def comprobarArgumentos(argumentos):
     if len(argumentos) != 7:
         #print("CHECKS: ERROR LOS ARGUMENTOS. Necesito estos argumentos: <CENTRAL_IP> <CENTRAL_PORT> <BROKER_IP> <BROKER_PORT> <SENSOR_IP> <SENSOR_PORT> <ID>")
-        printError("Necesito estos argumentos: <CENTRAL_IP> <CENTRAL_PORT> <BROKER_IP> <BROKER_PORT> <LISTEN_PORT> <ID>")
-        exit()
+        exitFatal("Necesito estos argumentos: <CENTRAL_IP> <CENTRAL_PORT> <BROKER_IP> <BROKER_PORT> <LISTEN_PORT> <ID>")
     printInfo("Número de argumentos correcto.")
 
 def asignarConstantes(argumentos):
