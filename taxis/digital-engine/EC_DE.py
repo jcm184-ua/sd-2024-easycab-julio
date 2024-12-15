@@ -124,7 +124,7 @@ def gestionarSensor(conexion, direccion):
                 #[EC_Sensor->EC_DE_?][OK]
                 camposMensaje = re.findall('[^\[\]]+', mensaje)
                 if camposMensaje[0] == "EC_Sensor->EC_DE_?":
-                    elif camposMensaje[1] == "OK" and estadoSensor == True:
+                    if camposMensaje[1] == "OK" and estadoSensor == True:
                         pass
                     elif camposMensaje[1] == "KO" and estadoSensor == False:
                         pass
