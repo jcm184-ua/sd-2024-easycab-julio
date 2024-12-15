@@ -108,7 +108,6 @@ def leerConfiguracionMapa():
     except IOError as error:
         exitFatal("No se ha podido abrir el fichero.")
 
-
 def leerBBDD():
     conexion, cursor = generarConexionBBDD(DATABASE_USER, DATABASE_PASSWORD)
 
@@ -127,19 +126,6 @@ def leerBBDD():
     printInfo(f"Ubiación clientes cargada desde BBDD.")
     dbToJSON()
     conexion.close()
-
-def ejecutarSentenciaBBDD(sentencia):
-    try:
-        conexion, cursor = generarConexionBBDD(DATABASE_USER, DATABASE_PASSWORD)
-        cursor.execute(sentencia)
-        resultado = cursor.fetchall()
-        conexion.commit()
-        conexion.close()
-        dbToJSON()
-        return resultado
-    except Exception as a:
-        printError(a)
-        return None
 
 def dbToJSON():
     conexion, cursor = generarConexionBBDD(DATABASE_USER, DATABASE_PASSWORD)
@@ -221,14 +207,12 @@ def verifiarTokenTaxi(idTaxi, tokenTaxi):
         if resultado is None:
             printError(f"Taxi {idTaxi} no encontrado en la base de datos al verificar token.")
             return False
+        elif tokenTaxi == resultado[0]:
+            printDebug("Token del taxi correcto")
+            return True
         else:
-            else:
-                if tokenTaxi == resultado[0]:
-                    printDebug("Token Taxi correcto")
-                    return True
-                else:
-                    printDebug("Token Taxi incorrecto")
-                    return False
+            printDebug("Token del taxi incorrecto")
+            return False
 
     except Exception as e:
         printError(e)
@@ -240,49 +224,48 @@ def gestionarBrokerClientes():
 
     consumidor = conectarBrokerConsumidor(BROKER_ADDR, TOPIC_CLIENTES) # ,auto_offset_reset='earliest')
 
-    for mensaje in consumidor:
-        #printDebug(f"Mensaje recibido en TOPIC_CLIENTES: {mensaje.value.decode(FORMAT)}")
-        camposMensaje = re.findall('[^\[\]]+', mensaje.value.decode(FORMAT))
+    try:
+        for mensaje in consumidor:
+            #printDebug(f"Mensaje recibido en TOPIC_CLIENTES: {mensaje.value.decode(FORMAT)}")
+            camposMensaje = re.findall('[^\[\]]+', mensaje.value.decode(FORMAT))
 
-        if camposMensaje[0].startswith("EC_Central"):
-            pass
-        elif camposMensaje[0].startswith("EC_Customer"):
-            # ['EC_Customer_a->EC_Central', 'E']
-            time.sleep(0.5) # Evitar que pueda terminar el servicio antes de que el customer esté conectado al broker
-            idCliente = camposMensaje[0].split("->")[0][12:]
-            localizacion = camposMensaje[1]
-            printInfo(f"Solicitud de servicio recibida, cliente {idCliente}, destino {localizacion}.")
+            if camposMensaje[0].startswith("EC_Central"):
+                pass
+            elif camposMensaje[0].startswith("EC_Customer"):
+                # ['EC_Customer_a->EC_Central', 'E']
+                time.sleep(0.5) # Evitar que pueda terminar el servicio antes de que el customer esté conectado al broker
+                idCliente = camposMensaje[0].split("->")[0][12:]
+                localizacion = camposMensaje[1]
+                printInfo(f"Solicitud de servicio recibida, cliente {idCliente}, destino {localizacion}.")
 
-            if mapa.getPosition(f"localizacion_{localizacion}") is None:
-                printWarning(f"La localización {localizacion} no existe. Cancelando servicio a cliente {idCliente}.")
-                publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{idCliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR)
-            else:
-                ejecutarSentenciaBBDD(f"UPDATE clientes SET IP = '{mensaje.key.decode(FORMAT)}' WHERE id = '{idCliente}'")
-                printDebug(f"Estado de los taxis (Conectados, Libres): {taxisConectados}, {taxisLibres}.")
-                if len(taxisLibres) < 1:
-                    printWarning(f"No hay taxis disponibles. Cancelando servicio a cliente {idCliente}.")
+                if mapa.getPosition(f"localizacion_{localizacion}") is None:
+                    printWarning(f"La localización {localizacion} no existe. Cancelando servicio a cliente {idCliente}.")
                     publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{idCliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR)
                 else:
-                    taxiElegido = taxisLibres.pop()
-                    printInfo(f"Asignando servicio del cliente {idCliente} al taxi {taxiElegido}.")
-                    mapa.activateTaxi(taxiElegido)
-                    publicarMensajeEnTopic(f"[EC_Central->EC_DE_{taxiElegido}][{BROADCAST_TOKEN}][SERVICIO][{idCliente}->{localizacion}]", TOPIC_TAXIS, BROKER_ADDR)
+                    ejecutarSentenciaBBDD(f"UPDATE clientes SET IP = '{mensaje.key.decode(FORMAT)}' WHERE id = '{idCliente}'")
+                    printDebug(f"Estado de los taxis (Conectados, Libres): {taxisConectados}, {taxisLibres}.")
+                    if len(taxisLibres) < 1:
+                        printWarning(f"No hay taxis disponibles. Cancelando servicio a cliente {idCliente}.")
+                        publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{idCliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR)
+                    else:
+                        taxiElegido = taxisLibres.pop()
+                        printInfo(f"Asignando servicio del cliente {idCliente} al taxi {taxiElegido}.")
+                        mapa.activateTaxi(taxiElegido)
+                        publicarMensajeEnTopic(f"[EC_Central->EC_DE_{taxiElegido}][{BROADCAST_TOKEN}][SERVICIO][{idCliente}->{localizacion}]", TOPIC_TAXIS, BROKER_ADDR)
 
-                    ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'enCamino' WHERE id = {taxiElegido}")
-                    ejecutarSentenciaBBDD(f"UPDATE taxis SET cliente = '{idCliente}' WHERE id = {taxiElegido}")
-                    ejecutarSentenciaBBDD(f"UPDATE taxis SET destino = '{localizacion}' WHERE id = {taxiElegido}")
+                        ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'enCamino' WHERE id = {taxiElegido}")
+                        ejecutarSentenciaBBDD(f"UPDATE taxis SET cliente = '{idCliente}' WHERE id = {taxiElegido}")
+                        ejecutarSentenciaBBDD(f"UPDATE taxis SET destino = '{localizacion}' WHERE id = {taxiElegido}")
 
-                    publicarMensajeEnTopic(f"[EC_DE_{taxiElegido}] Servicio asignado [{idCliente}->{localizacion}]", TOPIC_ERRORES_MAPA, BROKER_ADDR)
-                    printInfo(f"[EC_DE_{taxiElegido}] Servicio asignado [{idCliente}->{localizacion}]")
-                    #printLog(taxiElegido, f"Servicio asignado [{idCliente}->{localizacion}]")
+                        publicarMensajeEnTopic(f"[EC_DE_{taxiElegido}] Servicio asignado [{idCliente}->{localizacion}]", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+                        printInfo(f"[EC_DE_{taxiElegido}] Servicio asignado [{idCliente}->{localizacion}]")
+                        #printLog(taxiElegido, f"Servicio asignado [{idCliente}->{localizacion}]")
         else:
             #printInfo(mensaje)
             #printInfo(mensaje.value.decode(FORMAT))
             printError("Mensaje desconocido recibido en {TOPIC_CLIENTES} : {mensaje.value.decode(FORMAT)}.")
-    #except kafka.errors.NoBrokersAvailable as error:
-    #    printInfo("FATAL: No se ha podido conectar con el broker")
-    #    printInfo(error)
-    #    sys.exit()
+    except Exception as e:
+        exitFatal(f"Excepción producida al gestionar el broker de los clientes: {e}")
 
 def gestionarBrokerTaxis():
     global BROKER_ADDR, taxisLibres
@@ -290,7 +273,7 @@ def gestionarBrokerTaxis():
 
     for mensaje in consumidor:
         camposMensaje = re.findall('[^\[\]]+', mensaje.value.decode(FORMAT))
-        print("DEBUG: ", camposMensaje)
+        #printDebug(camposMensaje)
         #printInfo(camposMensaje)
         #printInfo(mensaje)
         if camposMensaje[0].startswith("EC_Central"):
@@ -299,7 +282,10 @@ def gestionarBrokerTaxis():
         elif camposMensaje[0].startswith("EC_DE"):
             idTaxi = camposMensaje[0].split("->")[0][6:]
 
-            if not verifiarTokenTaxi(idTaxi, camposMensaje[1])
+            if camposMensaje[1] == "":
+                printInfo(f"Taxi {idTaxi} ha enviado un mensaje sin token. Ignorando...")
+                pass
+            elif not verifiarTokenTaxi(idTaxi, camposMensaje[1]):
                 printInfo(f"Taxi {idTaxi} ha enviado un mensaje con un token erróneo. Ignorando...")
                 pass
 
@@ -332,8 +318,6 @@ def gestionarBrokerTaxis():
                     idCliente = taxiBBDD[0][4]
                     ejecutarSentenciaBBDD(f"UPDATE clientes SET posicion = '{posX},{posY}' WHERE id = '{idCliente}'")
                     mapa.move(f"cliente_{idCliente}", posX, posY)
-
-
 
                 mapa.move(f"taxi_{idTaxi}", posX, posY)
                 mapa.print()
@@ -453,6 +437,7 @@ def gestionarTaxi(conexion, direccion):
 
         mapa.deactivateTaxi(idTaxi)
         ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'desconectado' WHERE id = {idTaxi}")
+        ejecutarSentenciaBBDD(f"UPDATE taxis SET token = NULL WHERE id = {idTaxi}")
 
         mapa.print()
 
@@ -600,7 +585,7 @@ def main():
     printInfo("Mostrando mapa al momento del arranaque.")
     mapa.print()
 
-    printInfo('UUID4 "Broadcast": ' + BROADCAST_UUID + '.')
+    printInfo('TOKEN "Broadcast": ' + BROADCAST_TOKEN + '.')
 
     hiloClientes = threading.Thread(target=gestionarBrokerClientes)
     hiloClientes.start()

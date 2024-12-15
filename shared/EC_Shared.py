@@ -200,3 +200,17 @@ def generarConexionBBDD(usuario, contrasena):
     except Exception as e:
         # Base de datos no tiene que ser resiliente
         exitFatal(f"No se pudo conectar a la base de datos. {e}")
+
+def ejecutarSentenciaBBDD(sentencia):
+    #¿PUEDE QUE SE PUEDA USAR LAS CONSTANTES DEL HILO PADRE?
+    try:
+        conexion, cursor = generarConexionBBDD(DATABASE_USER, DATABASE_PASSWORD)
+        cursor.execute(sentencia)
+        resultado = cursor.fetchall()
+        conexion.commit()
+        conexion.close()
+        dbToJSON()
+        return resultado
+    except Exception as e:
+        # Base de datos no tiene que ser resiliente
+        exitFatal(f"No se pudo conectar a la base de datos. {e}")
