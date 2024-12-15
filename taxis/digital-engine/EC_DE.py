@@ -227,26 +227,25 @@ def gestionarBroker():
             #print(camposMensaje)
             if camposMensaje[0] == (f"EC_DE_{ID}->EC_Central"):
                 pass
-            elif camposMensaje[0] == ("EC_Central->ALL"):
-                    if not camposMensaje[1] != tokenCentral
-                        printInfo("Mensaje enviado por central con token incorrecto. Ignorando...")
-                        pass
-                    elif                
-                        mapa.loadJson(camposMensaje[1])
-                        mapa.loadActiveTaxis(camposMensaje[2])
-                        mapa.print()
-                    elif camposMensaje[0] == f"EC_Central->BASE":
-                        if camposMensaje[2] == "ALL" or camposMensaje[2] == ID:
-                            if camposMensaje[3] == "SI":
-                                irBase = True
-                            elif camposMensaje[3] == "NO":
-                                irBase = False
-                    elif camposMensaje[0] == f"EC_Central->EC_DE_{ID}":
-                        if camposMensaje[3] == "SERVICIO":
-                            clienteARecoger = camposMensaje[3].split("->")[0]
-                            idLocalizacion = camposMensaje[3].split("->")[1]
-                            cltX, cltY = obtenerPosicion(clienteARecoger, True)
-                            destX, destY = obtenerPosicion(idLocalizacion, False)
+            if camposMensaje[0].startswith("EC_Central") and (not camposMensaje[1] != tokenCentral):
+                printInfo("Mensaje enviado por central con token incorrecto. Ignorando...")
+                pass    
+            elif camposMensaje[0] == ("EC_Central->ALL"):            
+                    mapa.loadJson(camposMensaje[1])
+                    mapa.loadActiveTaxis(camposMensaje[2])
+                    mapa.print()
+            elif camposMensaje[0] == f"EC_Central->BASE":
+                if camposMensaje[2] == "ALL" or camposMensaje[2] == ID:
+                    if camposMensaje[3] == "SI":
+                        irBase = True
+                    elif camposMensaje[3] == "NO":
+                        irBase = False
+            elif camposMensaje[0] == f"EC_Central->EC_DE_{ID}":
+                if camposMensaje[3] == "SERVICIO":
+                    clienteARecoger = camposMensaje[3].split("->")[0]
+                    idLocalizacion = camposMensaje[3].split("->")[1]
+                    cltX, cltY = obtenerPosicion(clienteARecoger, True)
+                    destX, destY = obtenerPosicion(idLocalizacion, False)
             else:
                 # TODO: Informar mas que decir que error
                 pass
