@@ -13,6 +13,15 @@ DATABASE_PASSWORD = 'sd2024_registry'
 
 app = Flask(__name__)
 
+#NO FUNCIONA BIEN
+""" PUT http://127.0.0.1:5001/registrar ->
+<!doctype html>
+<html lang=en>
+<title>415 Unsupported Media Type</title>
+<h1>Unsupported Media Type</h1>
+<p>Did not attempt to load JSON data because the request Content-Type was not &#39;application/json&#39;.</p> """
+
+#NO DEBERIA SER /registrar/<taxi_id> ??
 @app.route("/registrar", methods=["PUT"])
 def registrarTaxi():
     """
@@ -44,6 +53,7 @@ def registrarTaxi():
 
     return jsonify({"message": f"Registrado", "token": token}), 201
 
+# FUNCIONA
 @app.route("/borrarTaxi/<taxi_id>", methods=["DELETE"])
 def borrarTaxi(taxi_id):
     """
@@ -81,11 +91,12 @@ def verificarEstadoRegistro(taxi_id):
         return jsonify({"id": taxi["id"], "token": taxi["token"]}), 200
     return jsonify({"error": f"Taxi {taxi_id} no está registrado"}), 404
 
-
+# NO HAY QUE VALIDAR NADA. Los tokens son entre central y taxi
+"""
 @app.route("/validar/<taxi_id>", methods=["POST"])
 def validarToken(taxi_id):
     """
-    Valida el token enviado por un taxi a la central.
+    #Valida el token enviado por un taxi a la central.
     """
     data = request.get_json()
     token = data.get("token")
@@ -102,6 +113,7 @@ def validarToken(taxi_id):
     if taxi:
         return jsonify({"message": "Token válido"}), 200
     return jsonify({"error": "Token inválido o taxi no registrado"}), 401
+"""
 
 if __name__ == "__main__":
     printInfo("Iniciando EC_Registry...")
