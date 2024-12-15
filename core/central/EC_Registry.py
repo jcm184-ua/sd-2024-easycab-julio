@@ -95,9 +95,8 @@ def verificarEstadoRegistro(taxi_id):
 """
 @app.route("/validar/<taxi_id>", methods=["POST"])
 def validarToken(taxi_id):
-    """
     #Valida el token enviado por un taxi a la central.
-    """
+    
     data = request.get_json()
     token = data.get("token")
 
