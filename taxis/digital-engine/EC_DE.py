@@ -91,7 +91,6 @@ def gestionarEstado():
 
 def gestionarSocketSensores():
     global sensoresConectados
-
     
     socketEscucha = abrirSocketServidor(THIS_ADDR)
     socketEscucha.listen()
@@ -140,18 +139,17 @@ def gestionarSensor(conexion, direccion):
         except:
             printError(f"Excepción {type(e)} en gestionarSensor().")
 
-def recibirMapaLogin(socket):
+def recibirTokensMapaLogin(socket):
     try:
         mensaje = recibirMensajeClienteSilent(socket)
         camposMensaje = re.findall('[^\[\]]+', mensaje)
-        # TODO: COMPROBAR BROADCAST TOKEN DE CENTRAL
-        printInfo(f"Tokens DE:'{token}', Central:'{tokenCentral}'  y mapa recibidos:")
+        printInfo(f"Token:'{token}', Central:'{tokenCentral}' y mapa recibidos:")
         mapa.loadJson(camposMensaje[2])
         mapa.loadActiveTaxis(camposMensaje[3])
         mapa.print()
         return True
     except Exception as e:
-        printError(f"Excepción {type(e)} al recibir el token y el mapa: {e}.")
+        printError(f"Excepción {type(e)} al recibir los tokens y el mapa: {e}.")
         return False
 
 def gestionarConexionCentral():
@@ -197,7 +195,7 @@ def gestionarConexionCentral():
 
                     elif mensaje == f"[EC_Central->EC_DE_{ID}][NOT_AUTHORIZED]":
                         socket.close()
-                        raise Exception("Autentificación incorrecta.")
+                        printWarning("Autentificación incorrecta.")
                         break
                     else:
                         printError(f"ENGINE: MENSAJE DESCONOCIDO: {mensaje}")
@@ -227,12 +225,13 @@ def gestionarBroker():
             #print(camposMensaje)
             if camposMensaje[0] == (f"EC_DE_{ID}->EC_Central"):
                 pass
-            if camposMensaje[0].startswith("EC_Central") and (not camposMensaje[1] != tokenCentral):
+            if camposMensaje[0].startswith("EC_Central") and (camposMensaje[1] != tokenCentral):
                 printInfo("Mensaje enviado por central con token incorrecto. Ignorando...")
-                pass    
+                printDebug(camposMensaje)
+                pass
             elif camposMensaje[0] == ("EC_Central->ALL"):            
-                    mapa.loadJson(camposMensaje[1])
-                    mapa.loadActiveTaxis(camposMensaje[2])
+                    mapa.loadJson(camposMensaje[2])
+                    mapa.loadActiveTaxis(camposMensaje[3])
                     mapa.print()
             elif camposMensaje[0] == f"EC_Central->BASE":
                 if camposMensaje[2] == "ALL" or camposMensaje[2] == ID:
@@ -241,7 +240,8 @@ def gestionarBroker():
                     elif camposMensaje[3] == "NO":
                         irBase = False
             elif camposMensaje[0] == f"EC_Central->EC_DE_{ID}":
-                if camposMensaje[3] == "SERVICIO":
+                if camposMensaje[2] == "SERVICIO":
+                    printInfo(f"Me han asignado el servicio {camposMensaje[3]}")
                     clienteARecoger = camposMensaje[3].split("->")[0]
                     idLocalizacion = camposMensaje[3].split("->")[1]
                     cltX, cltY = obtenerPosicion(clienteARecoger, True)
@@ -353,6 +353,8 @@ def manejarMovimientos():
                     # Mover hacia el destino del cliente
                     elif clienteRecogido and destX is not None and destY is not None:
                         try:
+
+                            x, y = calcularMovimientos(posX, posY, destX, destY)
                             while (int(posX) != int(destX) or int(posY) != int(destY)):
                                 if not estadoSensores:
                                     break
@@ -427,13 +429,13 @@ def darDeBaja():
 
 def main():
     while True:
-        print(f"=== Menú de Taxi {ID}===")
+        print(f"{COLORES_ANSI.BLUE}=== Menú de Taxi {ID} ===")
         print(f"TOKEN: {TOKEN}")
         print("Seleccione una opción:")
         print("1. Registrar")
         print("2. Dar de Baja")
         print("3. Autenticar")
-        print("4. Salir")
+        print(f"4. Salir{COLORES_ANSI.END_C}")
         opcion = input("Opción: ")
 
         if opcion == "1":

@@ -52,9 +52,9 @@ def gestionarConexionTaxi():
 
 def printMenu():
     if estadoSensor:
-        print("\nPresione [Enter] para generar una incidencia...\n")
+        print(f"{COLORES_ANSI.BLUE}Presione [Enter] para generar una incidencia.{COLORES_ANSI.END_C}")
     else:
-        print("\nPresione [Enter] para finalizar la incidencia...\n")
+        print(f"{COLORES_ANSI.BLUE}Presione [Enter] para finalizar la incidencia.{COLORES_ANSI.END_C}")
 
 def gestionarCambioEstado():
     global estadoSensor

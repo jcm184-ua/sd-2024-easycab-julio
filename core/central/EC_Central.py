@@ -18,8 +18,6 @@ from EC_Shared import *
 from EC_Map import Map
 from EC_Map import iniciarMapa
 
-DATABASE = './resources/database.db'
-
 HOST = '' # Simbólico, nos permite escuchar en todas las interfaces de red
 LISTEN_PORT = None
 THIS_ADDR = None
@@ -176,47 +174,28 @@ def dbToJSON():
         # Cerrar la conexión a la base de datos
         conexion.close()
 
-def comprobarTaxi(idTaxi):
+def ejecutarSentenciaBBDD(sentencia, user, password):
+    resultado = None
+
     try:
-        conexion, cursor = generarConexionBBDD(DATABASE_USER, DATABASE_PASSWORD)
-
-        cursor.execute("SELECT token FROM taxis WHERE id = ?", (idTaxi,))
-        resultado = cursor.fetchone()
-
-        if resultado is None:
-            printInfo(f"Taxi {idTaxi} no encontrado en la base de datos.")
-            return False
-        else:
-            if idTaxi in taxisConectados:
-                printInfo(f"Taxi {idTaxi} existe y ya está conectado.")
-                return False
-            else:
-                printInfo(f"Taxi {idTaxi} comprobado con éxito.")
-                return True
+        conexion, cursor = generarConexionBBDD(user, password)
+        cursor.execute(sentencia)
+        printInfo(f"Sentencia {sentencia} ejecutada sobre la BBDD.")
+        if not sentencia.startswith("UPDATE"):
+            try:
+                resultado = cursor.fetchall()
+            except mariadb.ProgrammingError as e:
+                printWarning(f"La consulta '{sentencia}' no ha producido resultados.")
+        conexion.commit()
+        conexion.close()
+        
+        #Enviar actualización de la bbdd
+        #dbToJSON()
+        
+        return resultado
     except Exception as e:
-        printError(e)
-        return False
-
-def verifiarTokenTaxi(idTaxi, tokenTaxi):
-    try:
-        conexion, cursor = generarConexionBBDD(DATABASE_USER, DATABASE_PASSWORD)
-
-        cursor.execute("SELECT token FROM taxis WHERE id = ?", (idTaxi,))
-        resultado = cursor.fetchone()
-
-        if resultado is None:
-            printError(f"Taxi {idTaxi} no encontrado en la base de datos al verificar token.")
-            return False
-        elif tokenTaxi == resultado[0]:
-            printDebug("Token del taxi correcto")
-            return True
-        else:
-            printDebug("Token del taxi incorrecto")
-            return False
-
-    except Exception as e:
-        printError(e)
-        return False
+        # Base de datos no tiene que ser resiliente
+        exitFatal(f"{threading.current_thread().name} - No se pudo conectar a la base de datos. {e.__class__}: {e}")
 
 def gestionarBrokerClientes():
     global diccionarioLocalizaciones
@@ -242,7 +221,7 @@ def gestionarBrokerClientes():
                     printWarning(f"La localización {localizacion} no existe. Cancelando servicio a cliente {idCliente}.")
                     publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{idCliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR)
                 else:
-                    ejecutarSentenciaBBDD(f"UPDATE clientes SET IP = '{mensaje.key.decode(FORMAT)}' WHERE id = '{idCliente}'", DATABASE_USER, DATABASE_PASSWORD)
+                    #ejecutarSentenciaBBDD(f"UPDATE clientes SET IP = '{mensaje.key.decode(FORMAT)}' WHERE id = '{idCliente}'", DATABASE_USER, DATABASE_PASSWORD)
                     printDebug(f"Estado de los taxis (Conectados, Libres): {taxisConectados}, {taxisLibres}.")
                     if len(taxisLibres) < 1:
                         printWarning(f"No hay taxis disponibles. Cancelando servicio a cliente {idCliente}.")
@@ -356,6 +335,47 @@ def gestionarBrokerTaxis():
             #printInfo(mensaje.value.decode(FORMAT))
             printError(f"Mensaje desconocido recibido en {TOPIC_TAXIS} : {mensaje.value.decode(FORMAT)}.")
 
+def comprobarTaxi(idTaxi):
+    try:
+        conexion, cursor = generarConexionBBDD(DATABASE_USER, DATABASE_PASSWORD)
+
+        cursor.execute("SELECT token FROM taxis WHERE id = ?", (idTaxi,))
+        resultado = cursor.fetchone()
+
+        if resultado is None:
+            printInfo(f"Taxi {idTaxi} no encontrado en la base de datos.")
+            return False
+        else:
+            if idTaxi in taxisConectados:
+                printInfo(f"Taxi {idTaxi} existe y ya está conectado.")
+                return False
+            else:
+                printInfo(f"Taxi {idTaxi} comprobado con éxito.")
+                return True
+    except Exception as e:
+        printError(e)
+        return False
+
+def verifiarTokenTaxi(idTaxi, tokenTaxi):
+    try:
+        conexion, cursor = generarConexionBBDD(DATABASE_USER, DATABASE_PASSWORD)
+
+        cursor.execute("SELECT token FROM taxis WHERE id = ?", (idTaxi,))
+        resultado = cursor.fetchone()
+
+        if resultado is None:
+            printError(f"Taxi {idTaxi} no encontrado en la base de datos al verificar token.")
+            return False
+        elif tokenTaxi == resultado[0]:
+            printDebug("Token del taxi correcto")
+            return True
+        else:
+            printDebug("Token del taxi incorrecto")
+            return False
+
+    except Exception as e:
+        printError(e)
+        return False
 
 def autenticarTaxi(conexion, direccion):
     tokenTaxi = str(uuid.uuid4())
@@ -372,9 +392,12 @@ def autenticarTaxi(conexion, direccion):
         enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][NOT_AUTHORIZED]")
         return -1
 
+    #printDebug(camposMensaje)
+
     ejecutarSentenciaBBDD(f"UPDATE taxis SET IP = '{direccion[0]}' WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
     ejecutarSentenciaBBDD(f"UPDATE taxis SET sensores = '{camposMensaje[2]}' WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
-    ejecutarSentenciaBBDD(f"UPDAte taxis SET token = '{tokenTaxi}' WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
+    ejecutarSentenciaBBDD(f"UPDATE taxis SET token = '{tokenTaxi}' WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
+    #printDebug("Primeras sentencias ejecutadas")
     if camposMensaje[3] != "None,None":
         printInfo(f"El taxi {idTaxi} tenía posición, por lo tanto nosotros habíamos caído.")
         # Si el taxi estaba realizando un servicio en el momento de nuestra caída comprobar si lo ha finalizado y notificar al cliente
@@ -389,7 +412,8 @@ def autenticarTaxi(conexion, direccion):
                 ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'servicio' WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
             else:
                 ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'enCamino' WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
-            taxisLibres.remove(idTaxi)
+                if idTaxi in taxisLibres:
+                    taxisLibres.remove(idTaxi)
     else:
         printInfo(f"El taxi {idTaxi} acaba de arrancar.")
     #[EC_Central->EC_DE_1][AUTHORIZED][1,2][Cliente][Destino]
@@ -408,6 +432,8 @@ def autenticarTaxi(conexion, direccion):
 def gestionarTaxi(conexion, direccion):
     global taxisConectados, taxisLibres
     idTaxi = autenticarTaxi(conexion, direccion)
+
+    #printDebug("Iniciando gestión.")
 
     if idTaxi != -1:
         taxisConectados.append(idTaxi)
