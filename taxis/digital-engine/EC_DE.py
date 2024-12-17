@@ -294,7 +294,7 @@ def mover(x, y):
         elif (x == posX) and (y == posY):
             pass
         elif not estadoSensores:
-            printError("Sensores no operativos. No se puede realizar el movimiento")
+            printInfo("Sensores no operativos. No se puede realizar el movimiento")
         else:
             posX = x
             posY = y
@@ -387,8 +387,8 @@ def manejarMovimientos():
 
                 time.sleep(1)  # Control de la tasa del bucle principal
             else:
-                printError("Sensores no operativos. No se puede realizar el movimiento.")
-                time.sleep(5    )
+                printInfo("Sensores no operativos. No se puede realizar el movimiento.")
+                time.sleep(5)
     except Exception as e:
         pass
         printError(f"Excepción {type(e)} inesperada en manejarMovimientos(): {e}")
