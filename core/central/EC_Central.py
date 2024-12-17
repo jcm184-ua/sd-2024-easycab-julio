@@ -29,8 +29,9 @@ BROKER_ADDR = None
 DATABASE_USER = 'ec_central'
 DATABASE_PASSWORD = 'sd2024_central'
 
-WEATHER_IP = '127.0.0.1'
-WEATHER_PORT = 5002
+WEATHER_IP = None
+WEATHER_PORT = None
+API_PORT = None
 
 BROADCAST_TOKEN = str(uuid.uuid4())
 
@@ -41,12 +42,13 @@ mapa = Map()
 irBase = False
 climaAdverso = False
 
+
 app = Flask(__name__)
 CORS(app)
 
 def comprobarArgumentos(argumentos):
-    if len(argumentos) != 4:
-        exitFatal("Necesito estos argumentos: <LISTEN_PORT> <BROKER_IP> <BROKER_PORT>")        
+    if len(argumentos) != 7:
+        exitFatal("Necesito estos argumentos: <LISTEN_PORT> <BROKER_IP> <BROKER_PORT> <WEATHER_IP> <WEATHER_PORT> <API_PORT>")        
     printInfo("Número de argumentos correcto.")
 
 def asignarConstantes(argumentos):
@@ -61,6 +63,12 @@ def asignarConstantes(argumentos):
     BROKER_PORT = int(argumentos[3])
     global BROKER_ADDR
     BROKER_ADDR = BROKER_IP+":"+str(BROKER_PORT)
+    global WEATHER_IP
+    WEATHER_IP = argumentos[4]
+    global WEATHER_PORT
+    WEATHER_PORT = int(argumentos[5])
+    global API_PORT
+    API_PORT = int(argumentos[6])
     printInfo("Constantes asignadas.")
 
 def obtenerIP(ID):
@@ -130,7 +138,7 @@ def dbToJSON():
 
     try:
         # Consultar datos de la tabla de taxis
-        cursor.execute("SELECT id, estado, sensores, posicion, cliente, destino, token FROM taxis")
+        cursor.execute("SELECT id, estado, sensores, posicion, cliente, destino FROM taxis")
         taxis = [
             {
                 "id": row[0],
@@ -138,8 +146,7 @@ def dbToJSON():
                 "sensores": row[2],
                 "posicion": row[3],
                 "cliente": row[4],
-                "destino": row[5],
-                "token": row[6]
+                "destino": row[5]
             }
             for row in cursor.fetchall()
         ]
@@ -165,7 +172,6 @@ def dbToJSON():
 
         printInfo("Enviando estado de la BBDD a traves del broker.")
         publicarMensajeEnTopicSilent(json_data, TOPIC_ESTADOS_MAPA, BROKER_ADDR)
-
     except Exception as e:
         print(f"Error al convertir la base de datos a JSON: {e}")
         return None
@@ -173,6 +179,59 @@ def dbToJSON():
     finally:
         # Cerrar la conexión a la base de datos
         conexion.close()
+
+
+def exportDB():
+    conexion, cursor = generarConexionBBDD(DATABASE_USER, DATABASE_PASSWORD)
+
+    try:
+        # Consultar datos de la tabla de taxis
+        cursor.execute("SELECT id, estado, sensores, posicion, cliente, destino FROM taxis")
+        taxis = [
+            {
+                "id": row[0],
+                "estado": row[1],
+                "sensores": row[2],
+                "posicion": row[3],
+                "cliente": row[4],
+                "destino": row[5]
+            }
+            for row in cursor.fetchall()
+        ]
+
+        # Consultar datos de la tabla de clientes
+        cursor.execute("SELECT id, posicion FROM clientes")
+        clientes = [
+            {
+                "id": row[0],
+                "posicion": row[1]
+            }
+            for row in cursor.fetchall()
+        ]
+
+
+        with open('./resources/EC_locations.json') as json_file:
+            jsonLocalizaciones = json.load(json_file)
+            
+        # Crear el objeto JSON
+        data = {
+            "taxis": taxis,
+            "clientes": clientes,
+            "localizaciones": jsonLocalizaciones
+        }
+        
+        # Convertir el objeto data a una cadena JSON con formato
+        json_data = json.dumps(data, indent=4)
+
+        return json_data 
+    except Exception as e:
+        print(f"Error al exportar la base de datos: {e}")
+        return None
+
+    finally:
+        # Cerrar la conexión a la base de datos
+        conexion.close()
+
 
 def ejecutarSentenciaBBDD(sentencia, user, password):
     resultado = None
@@ -339,7 +398,7 @@ def comprobarTaxi(idTaxi):
     try:
         conexion, cursor = generarConexionBBDD(DATABASE_USER, DATABASE_PASSWORD)
 
-        cursor.execute("SELECT token FROM taxis WHERE id = ?", (idTaxi,))
+        cursor.execute("SELECT id FROM taxis WHERE id = ?", (idTaxi,))
         resultado = cursor.fetchone()
 
         if resultado is None:
@@ -486,25 +545,21 @@ def gestionarLoginTaxis():
 def dirigirABaseATodos():
     global irBase
 
-    estado_anterior = irBase
+    taxisBase = None
 
-    while True:
-        if climaAdverso:
-            irBase = True
-        if irBase != estado_anterior:
-            if irBase:
-                publicarMensajeEnTopic(f"[EC_Central->BASE][{BROADCAST_TOKEN}][ALL][SI]", TOPIC_TAXIS, BROKER_ADDR)
-                publicarMensajeEnTopic(f"[EC_Central] Enviando todos los taxis a base", TOPIC_ERRORES_MAPA, BROKER_ADDR)
-                printInfo("Enviando todos los taxis a base.")
-                #printLog("ALL", "Enviando todos los taxis a base.")
-            else:
-                publicarMensajeEnTopic(f"[EC_Central->BASE][{BROADCAST_TOKEN}][ALL][NO]", TOPIC_TAXIS, BROKER_ADDR)
-                publicarMensajeEnTopic(f"[EC_Central] Los taxis pueden salir de base y continuar su servicio", TOPIC_ERRORES_MAPA, BROKER_ADDR)
-                printInfo("Cancelando envío a base.")
-                #printLog("ALL", "Cancelando envío a base.")
-
-            # Actualizamos el estado anterior
-            estado_anterior = irBase
+    while True:    
+        if irBase or climaAdverso:
+            publicarMensajeEnTopic(f"[EC_Central->BASE][{BROADCAST_TOKEN}][ALL][SI]", TOPIC_TAXIS, BROKER_ADDR)
+            publicarMensajeEnTopic(f"[EC_Central] Enviando todos los taxis a base", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+            printInfo("Enviando todos los taxis a base.")
+            taxisBase = True
+            #printLog("ALL", "Enviando todos los taxis a base.")
+        if not irBase and not climaAdverso and taxisBase:
+            publicarMensajeEnTopic(f"[EC_Central->BASE][{BROADCAST_TOKEN}][ALL][NO]", TOPIC_TAXIS, BROKER_ADDR)
+            publicarMensajeEnTopic(f"[EC_Central] Los taxis pueden salir de base y continuar su servicio", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+            printInfo("Cancelando envío a base.")
+            #printLog("ALL", "Cancelando envío a base.")
+            taxisBase = False
         time.sleep(1)
 
 def dirigirTaxiABase(idTaxi):
@@ -549,7 +604,7 @@ def inputBase():
             else:
                 taxiId = None
                 try:
-                    taxiId = int(user_input)
+                    taxiId = user_input
                     dirigirTaxiABase(taxiId)
                 except Exception as e:
                     printError(f"Error con la ID '{taxiId}': {e}")
@@ -578,9 +633,11 @@ def verificarClima():
                 #printLog("CENTRAL", data["message"])
             else:
                 printError("Error al consultar el clima.")
+                climaAdverso = True
                 #printLog("CENTRAL", "Error al consultar el clima.")
         except Exception as e:
             printWarning(f"Servidor de clima innacesible.")
+            climaAdverso = True
             #printLog("CENTRAL", f"Servidor de clima innacesible.")
         finally:
             time.sleep(10)
@@ -588,7 +645,17 @@ def verificarClima():
 ### API
 @app.route('/estadoActual-mapa', methods=['GET'])
 def estadoActual():
-    return mapa.exportJson()
+    try:
+        listado = exportDB()
+        if listado:
+            data = json.loads(listado)
+            data["taxis"] = [taxi for taxi in data["taxis"] if taxi["estado"] != "desconectado"]
+            listado = json.dumps(data, indent=4)
+
+        return listado, 200
+    except Exception as e:
+        return f"Error al obtener el estado actual del mapa: {e}", 500
+
 
 @app.route('/logs', methods=['GET'])
 def obtenerLogs():
@@ -603,8 +670,6 @@ def obtenerLogs():
         return "No hay logs disponibles para el día de hoy.", 404
 
 def main():
-    comprobarArgumentos(sys.argv)
-    asignarConstantes(sys.argv)
     leerConfiguracionMapa()
     leerBBDD()
 
@@ -622,24 +687,23 @@ def main():
     hiloLoginTaxis = threading.Thread(target=gestionarLoginTaxis)
     hiloLoginTaxis.start()
 
-    #hiloMapa = threading.Thread(target=iniciarMapa, args=(mapa, BROKER_ADDR,))
-    #hiloMapa.start()
+    hiloMapa = threading.Thread(target=iniciarMapa, args=(mapa, BROKER_ADDR,))
+    hiloMapa.start()
 
     hiloBase = threading.Thread(target=inputBase)
     hiloBase.start()
-
-    ##hiloApi = threading.Thread(target=app.run, kwargs={'debug': True})
-    ##hiloApi.start()
 
     # Iniciar el hilo para verificar el clima
     hiloClima = threading.Thread(target=verificarClima)
     hiloClima.start()
 
 if __name__ == "__main__":
+    comprobarArgumentos(sys.argv)
+    asignarConstantes(sys.argv)
     printInfo("Iniciando EC_Central...")
 
     # Ejecuta el servidor Flask en un hilo separado
-    hiloApi = threading.Thread(target=app.run, kwargs={'debug': True, 'use_reloader': False})
+    hiloApi = threading.Thread(target=app.run, kwargs={'debug': True, 'port': API_PORT, 'use_reloader': False})
     hiloApi.start()
 
     # Llama al resto de tu lógica principal

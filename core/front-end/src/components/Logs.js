@@ -5,6 +5,7 @@ const Logs = () => {
   const [logs, setLogs] = useState([]);
   const [error, setError] = useState(null);
 
+  // Función para obtener los logs
   const getLogs = async () => {
     try {
       const response = await fetch('http://localhost:5000/logs'); // Endpoint de la API
@@ -13,16 +14,22 @@ const Logs = () => {
       }
       const data = await response.text(); // Suponemos que los logs son texto
       setLogs(
-        data.split('\n')
-        .filter((log) => log.trim() !== '')
-        .reverse()); // Dividimos por líneas
+        data
+          .split('\n') // Dividimos por líneas
+          .filter((log) => log.trim() !== '') // Eliminamos líneas vacías
+          .reverse() // Mostramos en orden inverso
+      );
+      setError(null); // Resetea el error si se obtiene correctamente
     } catch (err) {
-      setError(err.message);
+      setError('Error al conectarse a la central.'); // Captura y muestra el error
     }
   };
 
+  // Efecto que actualiza los logs cada segundo
   useEffect(() => {
-    getLogs();
+    getLogs(); // Llamada inicial
+    const interval = setInterval(getLogs, 1000); // Repetir cada 1 segundo
+    return () => clearInterval(interval); // Limpiar el intervalo al desmontar el componente
   }, []);
 
   return (

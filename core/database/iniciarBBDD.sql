@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS taxis (
     posicion VARCHAR(255) NOT NULL default "0,0",
     cliente VARCHAR(255) default NULL CHECK(cliente IS NULL or cliente = "a" or cliente = "b" or cliente = "c" or cliente = "d" or cliente = "e" or cliente = "f"),
     destino VARCHAR(255) default NULL CHECK(destino IS NULL or destino = "A" or destino = "B" or destino = "C" or destino = "D" or destino = "E" or destino = "F"),
-    token VARCHAR(255),
-    IP VARCHAR(255)
+    IP VARCHAR(255),
+    token VARCHAR(255) default NULL
 );
 CREATE TABLE IF NOT EXISTS clientes (
     id VARCHAR(255) PRIMARY KEY,

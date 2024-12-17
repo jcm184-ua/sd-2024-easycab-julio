@@ -1,12 +1,28 @@
 from flask import Flask, jsonify
 import requests
 import json
+import sys
 from api_openweather import API_KEY
+
+sys.path.append('../shared')
+from EC_Shared import *
 
 app = Flask(__name__)
 
+LISTEN_PORT = None
+
 # Ruta del archivo JSON que contiene la ciudad
 CITY_JSON_PATH = "city.json"
+
+def comprobarArgumentos(argumentos):
+    if len(argumentos) != 2:
+        exitFatal("Necesito estos argumentos: <LISTEN_PORT>")        
+    printInfo("Número de argumentos correcto.")
+
+def asignarConstantes(argumentos):
+    global LISTEN_PORT
+    LISTEN_PORT = int(argumentos[1])
+    printInfo("Constantes asignadas.")
 
 # Leer la ciudad desde el archivo JSON
 def leerCiudad():
@@ -42,4 +58,6 @@ def consultarClima():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5002)
+    comprobarArgumentos(sys.argv)
+    asignarConstantes(sys.argv)
+    app.run(debug=True, port=LISTEN_PORT)
