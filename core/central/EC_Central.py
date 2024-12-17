@@ -168,7 +168,6 @@ def dbToJSON():
 
         printInfo("Enviando estado de la BBDD a traves del broker.")
         publicarMensajeEnTopicSilent(json_data, TOPIC_ESTADOS_MAPA, BROKER_ADDR)
-
     except Exception as e:
         print(f"Error al convertir la base de datos a JSON: {e}")
         return None
@@ -176,6 +175,59 @@ def dbToJSON():
     finally:
         # Cerrar la conexión a la base de datos
         conexion.close()
+
+
+def exportDB():
+    conexion, cursor = generarConexionBBDD(DATABASE_USER, DATABASE_PASSWORD)
+
+    try:
+        # Consultar datos de la tabla de taxis
+        cursor.execute("SELECT id, estado, sensores, posicion, cliente, destino FROM taxis")
+        taxis = [
+            {
+                "id": row[0],
+                "estado": row[1],
+                "sensores": row[2],
+                "posicion": row[3],
+                "cliente": row[4],
+                "destino": row[5]
+            }
+            for row in cursor.fetchall()
+        ]
+
+        # Consultar datos de la tabla de clientes
+        cursor.execute("SELECT id, posicion FROM clientes")
+        clientes = [
+            {
+                "id": row[0],
+                "posicion": row[1]
+            }
+            for row in cursor.fetchall()
+        ]
+
+
+        with open('./resources/EC_locations.json') as json_file:
+            jsonLocalizaciones = json.load(json_file)
+            
+        # Crear el objeto JSON
+        data = {
+            "taxis": taxis,
+            "clientes": clientes,
+            "localizaciones": jsonLocalizaciones
+        }
+        
+        # Convertir el objeto data a una cadena JSON con formato
+        json_data = json.dumps(data, indent=4)
+
+        return json_data 
+    except Exception as e:
+        print(f"Error al exportar la base de datos: {e}")
+        return None
+
+    finally:
+        # Cerrar la conexión a la base de datos
+        conexion.close()
+
 
 def ejecutarSentenciaBBDD(sentencia, user, password):
     resultado = None
@@ -494,20 +546,19 @@ def dirigirABaseATodos():
     while True:
         if climaAdverso:
             irBase = True
-        if irBase != estado_anterior:
-            if irBase:
-                publicarMensajeEnTopic(f"[EC_Central->BASE][{BROADCAST_TOKEN}][ALL][SI]", TOPIC_TAXIS, BROKER_ADDR)
-                publicarMensajeEnTopic(f"[EC_Central] Enviando todos los taxis a base", TOPIC_ERRORES_MAPA, BROKER_ADDR)
-                printInfo("Enviando todos los taxis a base.")
-                #printLog("ALL", "Enviando todos los taxis a base.")
-            else:
-                publicarMensajeEnTopic(f"[EC_Central->BASE][{BROADCAST_TOKEN}][ALL][NO]", TOPIC_TAXIS, BROKER_ADDR)
-                publicarMensajeEnTopic(f"[EC_Central] Los taxis pueden salir de base y continuar su servicio", TOPIC_ERRORES_MAPA, BROKER_ADDR)
-                printInfo("Cancelando envío a base.")
-                #printLog("ALL", "Cancelando envío a base.")
-
-            # Actualizamos el estado anterior
-            estado_anterior = irBase
+    
+        if irBase:
+            publicarMensajeEnTopic(f"[EC_Central->BASE][{BROADCAST_TOKEN}][ALL][SI]", TOPIC_TAXIS, BROKER_ADDR)
+            publicarMensajeEnTopic(f"[EC_Central] Enviando todos los taxis a base", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+            printInfo("Enviando todos los taxis a base.")
+            estado_anterior = True
+            #printLog("ALL", "Enviando todos los taxis a base.")
+        if not irBase and estado_anterior:
+            publicarMensajeEnTopic(f"[EC_Central->BASE][{BROADCAST_TOKEN}][ALL][NO]", TOPIC_TAXIS, BROKER_ADDR)
+            publicarMensajeEnTopic(f"[EC_Central] Los taxis pueden salir de base y continuar su servicio", TOPIC_ERRORES_MAPA, BROKER_ADDR)
+            printInfo("Cancelando envío a base.")
+            estado_anterior = False
+            #printLog("ALL", "Cancelando envío a base.")
         time.sleep(1)
 
 def dirigirTaxiABase(idTaxi):
@@ -593,7 +644,17 @@ def verificarClima():
 ### API
 @app.route('/estadoActual-mapa', methods=['GET'])
 def estadoActual():
-    return mapa.exportJson()
+    try:
+        listado = exportDB()
+        if listado:
+            data = json.loads(listado)
+            data["taxis"] = [taxi for taxi in data["taxis"] if taxi["estado"] != "desconectado"]
+            listado = json.dumps(data, indent=4)
+
+        return listado, 200
+    except Exception as e:
+        return f"Error al obtener el estado actual del mapa: {e}", 500
+
 
 @app.route('/logs', methods=['GET'])
 def obtenerLogs():

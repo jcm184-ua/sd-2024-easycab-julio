@@ -16,7 +16,7 @@ function App() {
         </div>
       </main>
       <footer className="footer">
-        <p>&copy; 2024 - Sistema de Taxis</p>
+        <p>&copy; 2024 - EASYCAB - Álvaro && Julio</p>
       </footer>
     </div>
   );

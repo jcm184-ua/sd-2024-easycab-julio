@@ -21,7 +21,7 @@ const Logs = () => {
       );
       setError(null); // Resetea el error si se obtiene correctamente
     } catch (err) {
-      setError(err.message); // Captura y muestra el error
+      setError('Error al conectarse a la central.'); // Captura y muestra el error
     }
   };
 
