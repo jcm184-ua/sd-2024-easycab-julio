@@ -1,6 +1,6 @@
 import sys
 import re
-import socket
+import socket, ssl
 import threading
 import json
 from kafka import KafkaProducer, KafkaConsumer
@@ -28,6 +28,10 @@ ID = None
 REGISTRY_IP = None
 REGISTRY_PORT = None
 API_URL = None
+
+CLI_CERTIFICATE  = './resources/certCli.pem'
+hostname = 'localhost'
+context = ssl._create_unverified_context()
 
 sensoresConectados = 0
 sensoresOk = 0
@@ -98,7 +102,7 @@ def gestionarEstado():
 
 def gestionarSocketSensores():
     global sensoresConectados
-    
+
     socketEscucha = abrirSocketServidor(THIS_ADDR)
     socketEscucha.listen()
 
@@ -165,34 +169,37 @@ def gestionarConexionCentral():
     while True:
         try:
             socket = abrirSocketCliente(CENTRAL_ADDR)
+            socketSeguro = context.wrap_socket(socket, server_hostname=hostname)
+            print(socketSeguro.version())
+
             printInfo("Intentando autenticar en central.")
             if estadoSensores:
-                enviarMensajeCliente(socket, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST][OK][{posX},{posY}][{clienteARecoger}][{clienteRecogido}]")
+                enviarMensajeCliente(socketSeguro, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST][OK][{posX},{posY}][{clienteARecoger}][{clienteRecogido}]")
             else:
-                enviarMensajeCliente(socket, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST][KO][{posX},{posY}][{clienteARecoger}][{clienteRecogido}]")
-            
+                enviarMensajeCliente(socketSeguro, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST][KO][{posX},{posY}][{clienteARecoger}][{clienteRecogido}]")
+
             #TODO: ¿Alguna mejor forma de esperar a que central responda?
             time.sleep(0.2)
 
             while True:
-                mensaje = recibirMensajeCliente(socket)
+                mensaje = recibirMensajeCliente(socketSeguro)
                 if mensaje == None:
                     printWarning(f"Se ha perdido la conexión con EC_Central.")
                     break
                 else:
                     camposMensaje = re.findall('[^\[\]]+', mensaje)
-                    if mensaje.startswith(f"[EC_Central->EC_DE_{ID}][AUTHORIZED]"):       
+                    if mensaje.startswith(f"[EC_Central->EC_DE_{ID}][AUTHORIZED]"):
                         token = camposMensaje[2]
                         tokenCentral = camposMensaje[3]
                         printInfo("Autentificación correcta.")
                         posX = camposMensaje[4].split(",")[0]
                         posY = camposMensaje[4].split(",")[1]
 
-                        if not recibirTokensMapaLogin(socket):
+                        if not recibirTokensMapaLogin(socketSeguro):
                             break # Se ha perdido conexión con el sensor durante el envío del mapas
                         hiloMovimientos = threading.Thread(target=manejarMovimientos)
                         hiloMovimientos.start()
-                        
+
                         if camposMensaje[5] != "None":
                             clienteARecoger = camposMensaje[5]
                             cltX, cltY = obtenerPosicion(camposMensaje[5], True)
@@ -201,7 +208,7 @@ def gestionarConexionCentral():
                             destX, destY = obtenerPosicion(camposMensaje[6], False)
 
                     elif mensaje == f"[EC_Central->EC_DE_{ID}][NOT_AUTHORIZED]":
-                        socket.close()
+                        socketSeguro.close()
                         printWarning("Autentificación incorrecta.")
                         break
                     else:
@@ -217,7 +224,7 @@ def gestionarConexionCentral():
             break
         finally:
             time.sleep(3)
-            
+
         #Una vez autorizados y con posición, esperar a que se nos indique un servicio
 
 def gestionarBroker():
@@ -236,7 +243,7 @@ def gestionarBroker():
                 printInfo("Mensaje enviado por central con token incorrecto. Ignorando...")
                 printDebug(camposMensaje)
                 pass
-            elif camposMensaje[0] == ("EC_Central->ALL"):            
+            elif camposMensaje[0] == ("EC_Central->ALL"):
                     mapa.loadJson(camposMensaje[2])
                     mapa.loadActiveTaxis(camposMensaje[3])
                     mapa.print()
@@ -268,7 +275,7 @@ def obtenerPosicion(id, cliente):
     if (cliente):
         posicion = mapa.getPosition(f"cliente_{id}")
     else:
-        posicion = mapa.getPosition(f"localizacion_{id}") 
+        posicion = mapa.getPosition(f"localizacion_{id}")
 
     if posicion is not None:
         x, y = posicion.split(",")
@@ -292,7 +299,7 @@ def mover(x, y):
             posX = x
             posY = y
 
-            printInfo(f"Moviendo a dirección ({x},{y})")        
+            printInfo(f"Moviendo a dirección ({x},{y})")
             """publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][{token}][MOVIMIENTO][{x},{y}][{clienteARecoger}]", TOPIC_TAXIS, BROKER_ADDR)"""
 
             if clienteRecogido:
@@ -319,7 +326,7 @@ def calcularMovimientos(X, Y, destX, destY):
 
     except Exception as e:
         raise Exception(f"Error al calcular los movimientos: {e}")
-    
+
 def manejarMovimientos():
     global posX, posY, destX, destY, cltX, cltY, clienteRecogido, clienteARecoger, idLocalizacion, irBase
 
@@ -368,7 +375,7 @@ def manejarMovimientos():
                                 x, y = calcularMovimientos(posX, posY, destX, destY)
                                 mover(x, y)
                                 time.sleep(1)  # Esperar un segundo entre movimientos
-                    
+
                             if estadoSensores:
                                 printInfo("Destino alcanzado.")
                                 publicarMensajeEnTopic(f"[EC_DE_{ID}->EC_Central][{token}][SERVICIO][CLIENTE_EN_DESTINO][{clienteARecoger}][{x},{y}][{idLocalizacion}]", TOPIC_TAXIS, BROKER_ADDR)
@@ -377,7 +384,7 @@ def manejarMovimientos():
                                 destX, destY, cltX, cltY = None, None, None, None
                         except Exception as e:
                             raise Exception(f"Error al mover hacia el destino. {e}")
-                        
+
                 time.sleep(1)  # Control de la tasa del bucle principal
             else:
                 printError("Sensores no operativos. No se puede realizar el movimiento.")
@@ -427,7 +434,7 @@ def darDeBaja():
         else:
             # Manejo de errores
             error_message = response.json().get("error", response.text)
-            print(f"Error al registrar el taxi: {error_message}")
+            print(f"Error al dar de baja el taxi: {error_message}")
     except requests.RequestException as e:
         print(f"Error de conexión al API: {e}")
 
@@ -444,7 +451,7 @@ def main():
 
         if opcion == "1":
             print("Registrando Taxi...")
-            registrarTaxi() 
+            registrarTaxi()
         elif opcion == "2":
             print("Dando de Baja Taxi...")
             darDeBaja()
