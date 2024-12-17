@@ -25,7 +25,9 @@ HOST = "" # Simbólico, nos permite escuchar en todas las interfaces de red
 LISTEN_PORT = None
 THIS_ADDR = None
 ID = None
-API_URL = "http://localhost:5001"
+REGISTRY_IP = None
+REGISTRY_PORT = None
+API_URL = None
 
 sensoresConectados = 0
 sensoresOk = 0
@@ -48,9 +50,9 @@ idLocalizacion = None
 irBase = False
 
 def comprobarArgumentos(argumentos):
-    if len(argumentos) != 7:
+    if len(argumentos) != 9:
         #print("CHECKS: ERROR LOS ARGUMENTOS. Necesito estos argumentos: <CENTRAL_IP> <CENTRAL_PORT> <BROKER_IP> <BROKER_PORT> <SENSOR_IP> <SENSOR_PORT> <ID>")
-        exitFatal("Necesito estos argumentos: <CENTRAL_IP> <CENTRAL_PORT> <BROKER_IP> <BROKER_PORT> <LISTEN_PORT> <ID>")
+        exitFatal("Necesito estos argumentos: <CENTRAL_IP> <CENTRAL_PORT> <BROKER_IP> <BROKER_PORT> <LISTEN_PORT> <ID> <REGISTRY_IP> <REGISTRY_PORT>")
     printInfo("Número de argumentos correcto.")
 
 def asignarConstantes(argumentos):
@@ -72,6 +74,12 @@ def asignarConstantes(argumentos):
     THIS_ADDR = (HOST, LISTEN_PORT)
     global ID
     ID = int(argumentos[6])
+    global REGISTRY_IP
+    REGISTRY_IP = argumentos[7]
+    global REGISTRY_PORT
+    REGISTRY_PORT = int(argumentos[8])
+    global API_URL
+    API_URL = f"http://{REGISTRY_IP}:{REGISTRY_PORT}"
     printInfo("Constantes asignadas.")
 
 def gestionarEstado():
@@ -159,9 +167,9 @@ def gestionarConexionCentral():
             socket = abrirSocketCliente(CENTRAL_ADDR)
             printInfo("Intentando autenticar en central.")
             if estadoSensores:
-                enviarMensajeCliente(socket, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST][OK][{posX},{posY}][{clienteARecoger}][{clienteRecogido}][{TOKEN}]")
+                enviarMensajeCliente(socket, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST][OK][{posX},{posY}][{clienteARecoger}][{clienteRecogido}][{token}]")
             else:
-                enviarMensajeCliente(socket, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST][KO][{posX},{posY}][{clienteARecoger}][{clienteRecogido}][{TOKEN}]")
+                enviarMensajeCliente(socket, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST][KO][{posX},{posY}][{clienteARecoger}][{clienteRecogido}][{token}]")
             
             #TODO: ¿Alguna mejor forma de esperar a que central responda?
             time.sleep(0.2)
@@ -318,7 +326,7 @@ def manejarMovimientos():
     try:
         while True:
             if estadoSensores:
-                #printDebug("Iteración manejar movimientos.")
+                                #printDebug("Iteración manejar movimientos.")
                 #printDebug(f"{clienteRecogido}, {cltX}, {cltY}")
                 # Mover hacia el cliente
                 if irBase:
@@ -370,9 +378,13 @@ def manejarMovimientos():
                         except Exception as e:
                             raise Exception(f"Error al mover hacia el destino. {e}")
                         
-            time.sleep(1)  # Control de la tasa del bucle principal
+                time.sleep(1)  # Control de la tasa del bucle principal
+            else:
+                printError("Sensores no operativos. No se puede realizar el movimiento.")
+                time.sleep(5    )
     except Exception as e:
-        printError(f"Excepción {type(e)} inesperada en manejarMovimientos(): {e}")
+        pass
+        #printError(f"Excepción {type(e)} inesperada en manejarMovimientos(): {e}")
 
 def autenticarEnCentral():
     hiloEstado = threading.Thread(target=gestionarEstado)
@@ -388,11 +400,8 @@ def registrarTaxi():
     try:
         print("Intentando registrar el taxi...")
 
-        # Datos a enviar al endpoint
-        payload = {"id": ID}
-
         # Llamada al endpoint de registro
-        response = requests.put(f"{API_URL}/registrar", json=payload)
+        response = requests.put(f"{API_URL}/registrar/{ID}")
 
         # Si la respuesta tiene un código de éxito
         if response.status_code == 201:
@@ -425,6 +434,7 @@ def darDeBaja():
 def main():
     while True:
         print(f"{COLORES_ANSI.BLUE}=== Menú de Taxi {ID} ===")
+
         print("Seleccione una opción:")
         print("1. Registrar")
         print("2. Dar de Baja")
@@ -449,7 +459,6 @@ def main():
 if __name__ == "__main__":
     comprobarArgumentos(sys.argv)
     asignarConstantes(sys.argv)
-
 
     hiloSocketSensores = threading.Thread(target=gestionarSocketSensores)
     hiloSocketSensores.start()

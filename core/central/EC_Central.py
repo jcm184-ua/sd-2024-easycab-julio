@@ -29,8 +29,8 @@ BROKER_ADDR = None
 DATABASE_USER = 'ec_central'
 DATABASE_PASSWORD = 'sd2024_central'
 
-WEATHER_IP = '127.0.0.1'
-WEATHER_PORT = 5002
+WEATHER_IP = None
+WEATHER_PORT = None
 
 BROADCAST_TOKEN = str(uuid.uuid4())
 
@@ -45,8 +45,8 @@ app = Flask(__name__)
 CORS(app)
 
 def comprobarArgumentos(argumentos):
-    if len(argumentos) != 4:
-        exitFatal("Necesito estos argumentos: <LISTEN_PORT> <BROKER_IP> <BROKER_PORT>")        
+    if len(argumentos) != 6:
+        exitFatal("Necesito estos argumentos: <LISTEN_PORT> <BROKER_IP> <BROKER_PORT> <WEATHER_IP> <WEATHER_PORT>")        
     printInfo("Número de argumentos correcto.")
 
 def asignarConstantes(argumentos):
@@ -61,6 +61,10 @@ def asignarConstantes(argumentos):
     BROKER_PORT = int(argumentos[3])
     global BROKER_ADDR
     BROKER_ADDR = BROKER_IP+":"+str(BROKER_PORT)
+    global WEATHER_IP
+    WEATHER_IP = argumentos[4]
+    global WEATHER_PORT
+    WEATHER_PORT = int(argumentos[5])
     printInfo("Constantes asignadas.")
 
 def obtenerIP(ID):
@@ -577,9 +581,11 @@ def verificarClima():
                 #printLog("CENTRAL", data["message"])
             else:
                 printError("Error al consultar el clima.")
+                climaAdverso = True
                 #printLog("CENTRAL", "Error al consultar el clima.")
         except Exception as e:
             printWarning(f"Servidor de clima innacesible.")
+            climaAdverso = True
             #printLog("CENTRAL", f"Servidor de clima innacesible.")
         finally:
             time.sleep(10)
@@ -626,9 +632,6 @@ def main():
 
     hiloBase = threading.Thread(target=inputBase)
     hiloBase.start()
-
-    ##hiloApi = threading.Thread(target=app.run, kwargs={'debug': True})
-    ##hiloApi.start()
 
     # Iniciar el hilo para verificar el clima
     hiloClima = threading.Thread(target=verificarClima)
