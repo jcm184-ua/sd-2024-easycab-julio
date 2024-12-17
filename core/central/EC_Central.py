@@ -2,7 +2,7 @@ import sys
 import time
 import json
 import re
-import socket
+import socket, ssl
 import threading
 from kafka import KafkaConsumer, KafkaProducer
 import mariadb
@@ -31,7 +31,11 @@ DATABASE_PASSWORD = 'sd2024_central'
 
 WEATHER_IP = None
 WEATHER_PORT = None
-API_PORT = None
+FRONT_API_PORT = None
+
+SERV_CERTIFICATE  = './resources/certServ.pem'
+context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+context.load_cert_chain(SERV_CERTIFICATE, SERV_CERTIFICATE)
 
 BROADCAST_TOKEN = str(uuid.uuid4())
 
@@ -48,7 +52,7 @@ CORS(app)
 
 def comprobarArgumentos(argumentos):
     if len(argumentos) != 7:
-        exitFatal("Necesito estos argumentos: <LISTEN_PORT> <BROKER_IP> <BROKER_PORT> <WEATHER_IP> <WEATHER_PORT> <API_PORT>")        
+        exitFatal("Necesito estos argumentos: <LISTEN_PORT> <FRONT_API_PORT> <BROKER_IP> <BROKER_PORT> <WEATHER_IP> <WEATHER_PORT>")
     printInfo("Número de argumentos correcto.")
 
 def asignarConstantes(argumentos):
@@ -57,18 +61,18 @@ def asignarConstantes(argumentos):
     LISTEN_PORT = int(argumentos[1])
     global THIS_ADDR
     THIS_ADDR =  (HOST, LISTEN_PORT)
+    global FRONT_API_PORT
+    FRONT_API_PORT = int(argumentos[2])
     global BROKER_IP
-    BROKER_IP = argumentos[2]
+    BROKER_IP = argumentos[3]
     global BROKER_PORT
-    BROKER_PORT = int(argumentos[3])
+    BROKER_PORT = int(argumentos[4])
     global BROKER_ADDR
     BROKER_ADDR = BROKER_IP+":"+str(BROKER_PORT)
     global WEATHER_IP
-    WEATHER_IP = argumentos[4]
+    WEATHER_IP = argumentos[5]
     global WEATHER_PORT
-    WEATHER_PORT = int(argumentos[5])
-    global API_PORT
-    API_PORT = int(argumentos[6])
+    WEATHER_PORT = int(argumentos[6])
     printInfo("Constantes asignadas.")
 
 def obtenerIP(ID):
@@ -146,7 +150,8 @@ def dbToJSON():
                 "sensores": row[2],
                 "posicion": row[3],
                 "cliente": row[4],
-                "destino": row[5]
+                "destino": row[5],
+                "token": row[6]
             }
             for row in cursor.fetchall()
         ]
@@ -194,7 +199,8 @@ def exportDB():
                 "sensores": row[2],
                 "posicion": row[3],
                 "cliente": row[4],
-                "destino": row[5]
+                "destino": row[5],
+                "token": row[6]
             }
             for row in cursor.fetchall()
         ]
@@ -212,18 +218,18 @@ def exportDB():
 
         with open('./resources/EC_locations.json') as json_file:
             jsonLocalizaciones = json.load(json_file)
-            
+
         # Crear el objeto JSON
         data = {
             "taxis": taxis,
             "clientes": clientes,
             "localizaciones": jsonLocalizaciones
         }
-        
+
         # Convertir el objeto data a una cadena JSON con formato
         json_data = json.dumps(data, indent=4)
 
-        return json_data 
+        return json_data
     except Exception as e:
         print(f"Error al exportar la base de datos: {e}")
         return None
@@ -247,10 +253,10 @@ def ejecutarSentenciaBBDD(sentencia, user, password):
                 printWarning(f"La consulta '{sentencia}' no ha producido resultados.")
         conexion.commit()
         conexion.close()
-        
+
         #Enviar actualización de la bbdd
         #dbToJSON()
-        
+
         return resultado
     except Exception as e:
         # Base de datos no tiene que ser resiliente
@@ -539,7 +545,8 @@ def gestionarLoginTaxis():
     socketEscucha.listen()
     while True:
         conexion, direccion = socketEscucha.accept()
-        hiloTaxi = threading.Thread(target=gestionarTaxi, args=(conexion, direccion))
+        socketEscuchaSeguro = context.wrap_socket(conexion, server_side=True)
+        hiloTaxi = threading.Thread(target=gestionarTaxi, args=(socketEscuchaSeguro, direccion))
         hiloTaxi.start()
 
 def dirigirABaseATodos():
@@ -547,7 +554,7 @@ def dirigirABaseATodos():
 
     taxisBase = None
 
-    while True:    
+    while True:
         if irBase or climaAdverso:
             publicarMensajeEnTopic(f"[EC_Central->BASE][{BROADCAST_TOKEN}][ALL][SI]", TOPIC_TAXIS, BROKER_ADDR)
             publicarMensajeEnTopic(f"[EC_Central] Enviando todos los taxis a base", TOPIC_ERRORES_MAPA, BROKER_ADDR)
@@ -703,7 +710,7 @@ if __name__ == "__main__":
     printInfo("Iniciando EC_Central...")
 
     # Ejecuta el servidor Flask en un hilo separado
-    hiloApi = threading.Thread(target=app.run, kwargs={'debug': True, 'port': API_PORT, 'use_reloader': False})
+    hiloApi = threading.Thread(target=app.run, kwargs={'debug': True, 'port': FRONT_API_PORT, 'use_reloader': False})
     hiloApi.start()
 
     # Llama al resto de tu lógica principal

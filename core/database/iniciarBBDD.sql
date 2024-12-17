@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS taxis (
     posicion VARCHAR(255) NOT NULL default "0,0",
     cliente VARCHAR(255) default NULL CHECK(cliente IS NULL or cliente = "a" or cliente = "b" or cliente = "c" or cliente = "d" or cliente = "e" or cliente = "f"),
     destino VARCHAR(255) default NULL CHECK(destino IS NULL or destino = "A" or destino = "B" or destino = "C" or destino = "D" or destino = "E" or destino = "F"),
-    IP VARCHAR(255),
+    IP VARCHAR(255) default NULL,
     token VARCHAR(255) default NULL
 );
 CREATE TABLE IF NOT EXISTS clientes (
@@ -19,12 +19,12 @@ CREATE TABLE IF NOT EXISTS clientes (
     posicion VARCHAR(255) NOT NULL default "0,0",
     IP VARCHAR(255)
 );
-INSERT INTO taxis (id, posicion) VALUES (1, "1,1");
-INSERT INTO taxis (id, posicion) VALUES (2, "1,2");
-INSERT INTO taxis (id, posicion) VALUES (3, "1,3");
-INSERT INTO taxis (id, posicion) VALUES (4, "1,4");
-INSERT INTO taxis (id, posicion) VALUES (5, "1,5");
-INSERT INTO taxis (id, posicion) VALUES (6, "1,6");
+--INSERT INTO taxis (id, posicion) VALUES (1, "1,1");
+--INSERT INTO taxis (id, posicion) VALUES (2, "1,2");
+--INSERT INTO taxis (id, posicion) VALUES (3, "1,3");
+--INSERT INTO taxis (id, posicion) VALUES (4, "1,4");
+--INSERT INTO taxis (id, posicion) VALUES (5, "1,5");
+--INSERT INTO taxis (id, posicion) VALUES (6, "1,6");
 INSERT INTO clientes (id, posicion) VALUES ("a", "15,17");
 INSERT INTO clientes (id, posicion) VALUES ("b", "6,12");
 INSERT INTO clientes (id, posicion) VALUES ("c", "18,15");
