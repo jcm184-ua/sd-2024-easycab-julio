@@ -541,24 +541,21 @@ def gestionarLoginTaxis():
 def dirigirABaseATodos():
     global irBase
 
-    estado_anterior = irBase
+    taxisBase = None
 
-    while True:
-        if climaAdverso:
-            irBase = True
-    
-        if irBase:
+    while True:    
+        if irBase or climaAdverso:
             publicarMensajeEnTopic(f"[EC_Central->BASE][{BROADCAST_TOKEN}][ALL][SI]", TOPIC_TAXIS, BROKER_ADDR)
             publicarMensajeEnTopic(f"[EC_Central] Enviando todos los taxis a base", TOPIC_ERRORES_MAPA, BROKER_ADDR)
             printInfo("Enviando todos los taxis a base.")
-            estado_anterior = True
+            taxisBase = True
             #printLog("ALL", "Enviando todos los taxis a base.")
-        if not irBase and estado_anterior:
+        if not irBase and not climaAdverso and taxisBase:
             publicarMensajeEnTopic(f"[EC_Central->BASE][{BROADCAST_TOKEN}][ALL][NO]", TOPIC_TAXIS, BROKER_ADDR)
             publicarMensajeEnTopic(f"[EC_Central] Los taxis pueden salir de base y continuar su servicio", TOPIC_ERRORES_MAPA, BROKER_ADDR)
             printInfo("Cancelando envío a base.")
-            estado_anterior = False
             #printLog("ALL", "Cancelando envío a base.")
+            taxisBase = False
         time.sleep(1)
 
 def dirigirTaxiABase(idTaxi):
@@ -603,7 +600,7 @@ def inputBase():
             else:
                 taxiId = None
                 try:
-                    taxiId = int(user_input)
+                    taxiId = user_input
                     dirigirTaxiABase(taxiId)
                 except Exception as e:
                     printError(f"Error con la ID '{taxiId}': {e}")
@@ -688,8 +685,8 @@ def main():
     hiloLoginTaxis = threading.Thread(target=gestionarLoginTaxis)
     hiloLoginTaxis.start()
 
-    #hiloMapa = threading.Thread(target=iniciarMapa, args=(mapa, BROKER_ADDR,))
-    #hiloMapa.start()
+    hiloMapa = threading.Thread(target=iniciarMapa, args=(mapa, BROKER_ADDR,))
+    hiloMapa.start()
 
     hiloBase = threading.Thread(target=inputBase)
     hiloBase.start()

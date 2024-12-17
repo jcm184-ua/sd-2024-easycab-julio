@@ -241,7 +241,7 @@ def gestionarBroker():
                     mapa.loadActiveTaxis(camposMensaje[3])
                     mapa.print()
             elif camposMensaje[0] == f"EC_Central->BASE":
-                if camposMensaje[2] == "ALL" or camposMensaje[2] == ID:
+                if camposMensaje[2] == "ALL" or camposMensaje[2] == str(ID):
                     if camposMensaje[3] == "SI":
                         irBase = True
                     elif camposMensaje[3] == "NO":

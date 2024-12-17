@@ -38,8 +38,6 @@ class Map:
                         if key.startswith('taxi'):
                             if key in self.taxisActivos:
                                 taxi = f"{COLORES_ANSI.BACKGROUD_GREEN}{COLORES_ANSI.BLACK}{key[5:]}{COLORES_ANSI.BLACK}{COLORES_ANSI.END_C}"
-                            else:
-                                taxi = f"{COLORES_ANSI.BACKGROUD_RED}{COLORES_ANSI.BLACK}{key[5:]}{COLORES_ANSI.BLACK}{COLORES_ANSI.END_C}"
                         if key.startswith('localizacion'):
                             localizacion = f"{COLORES_ANSI.BACKGROUD_BLUE}{COLORES_ANSI.BLACK}{key[13:]}{COLORES_ANSI.BLACK}{COLORES_ANSI.END_C}"
                         if key.startswith('cliente'):
@@ -74,9 +72,7 @@ class Map:
                                 taxi_dibujado = True  # Hay un taxi
                                 if key in self.taxisActivos:
                                     backgroud_color = "limeGreen"
-                                else:
-                                    backgroud_color = "red"
-                                elementos.append(key[5:])  # Añadir nombre del taxi
+                                    elementos.append(key[5:])  # Añadir nombre del taxi
                             elif key.startswith('cliente'):
                                 if not taxi_dibujado:  # Si no se ha dibujado un taxi
                                     backgroud_color = "yellow"
