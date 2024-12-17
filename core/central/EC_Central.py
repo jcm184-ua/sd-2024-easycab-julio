@@ -708,6 +708,7 @@ if __name__ == "__main__":
     comprobarArgumentos(sys.argv)
     asignarConstantes(sys.argv)
     printInfo("Iniciando EC_Central...")
+    ejecutarSentenciaBBDD(f"UPDATE taxis SET token = NULL", DATABASE_USER, DATABASE_PASSWORD)
 
     # Ejecuta el servidor Flask en un hilo separado
     hiloApi = threading.Thread(target=app.run, kwargs={'debug': True, 'port': FRONT_API_PORT, 'use_reloader': False})
