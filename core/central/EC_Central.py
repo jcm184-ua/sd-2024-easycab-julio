@@ -255,7 +255,7 @@ def ejecutarSentenciaBBDD(sentencia, user, password):
         conexion.close()
 
         #Enviar actualización de la bbdd
-        #dbToJSON()
+        dbToJSON()
 
         return resultado
     except Exception as e:
@@ -329,7 +329,7 @@ def gestionarBrokerTaxis():
             if camposMensaje[1] == "":
                 printInfo(f"Taxi {idTaxi} ha enviado un mensaje sin token. Ignorando...")
                 pass
-            elif not verifiarTokenTaxi(idTaxi, camposMensaje[1]):
+            elif not verificarTokenTaxi(idTaxi, camposMensaje[1]):
                 printInfo(f"Taxi {idTaxi} ha enviado un mensaje con un token erróneo. Ignorando...")
                 pass
 
@@ -421,7 +421,7 @@ def comprobarTaxi(idTaxi):
         printError(e)
         return False
 
-def verifiarTokenTaxi(idTaxi, tokenTaxi):
+def verificarTokenTaxi(idTaxi, tokenTaxi):
     try:
         conexion, cursor = generarConexionBBDD(DATABASE_USER, DATABASE_PASSWORD)
 

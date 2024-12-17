@@ -39,7 +39,6 @@ class COLORES_ANSI:
     else:
         IP = obtenerIP(ID)"""
 
-# Helper function ¿CHATGPT/COPILOT? ¿Para que quieres las IPs en los logs teniendo IDs?
 """def obtenerIP(ID):
     conexion, cursor = generarConexionBBDD(DATABASE_USER, DATABASE_PASSWORD)
 
