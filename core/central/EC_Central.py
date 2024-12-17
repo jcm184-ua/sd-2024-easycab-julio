@@ -185,7 +185,6 @@ def dbToJSON():
         # Cerrar la conexión a la base de datos
         conexion.close()
 
-
 def exportDB():
     conexion, cursor = generarConexionBBDD(DATABASE_USER, DATABASE_PASSWORD)
 
@@ -237,7 +236,6 @@ def exportDB():
     finally:
         # Cerrar la conexión a la base de datos
         conexion.close()
-
 
 def ejecutarSentenciaBBDD(sentencia, user, password):
     resultado = None
@@ -492,7 +490,6 @@ def autenticarTaxi(conexion, direccion):
     #printLog(idTaxi, f"Taxi {idTaxi} ha sido autorizado.")
     #actualizarEstadosJSON(False, idTaxi, "OK. Parado")
     return idTaxi
-
 
 def gestionarTaxi(conexion, direccion):
     global taxisConectados, taxisLibres
