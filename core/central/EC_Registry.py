@@ -21,37 +21,33 @@ app = Flask(__name__)
 <h1>Unsupported Media Type</h1>
 <p>Did not attempt to load JSON data because the request Content-Type was not &#39;application/json&#39;.</p> """
 
-#NO DEBERIA SER /registrar/<taxi_id> ??
-@app.route("/registrar", methods=["PUT"])
-def registrarTaxi():
+@app.route("/registrar/<taxi_id>", methods=["PUT"])
+def registrarTaxi(taxi_id):
     """
-    Registra un taxi en el sistema y genera un token.
+    Registra un taxi en el sistema y devuelve un mensaje.
     """
     conexion, cursor = generarConexionBBDD(DATABASE_USER, DATABASE_PASSWORD)
 
-    data = request.get_json()
-    taxi_id = data.get("id")
     ip = request.remote_addr
 
     if not taxi_id:
         return jsonify({"error": "ID del taxi es requerido"}), 400
 
+    # Verificar si el taxi ya está registrado
     cursor.execute("SELECT * FROM taxis WHERE id = %s", (taxi_id,))
     if cursor.fetchone():
+        conexion.close()
         return jsonify({"error": f"Taxi {taxi_id} ya está registrado"}), 409
 
-    # Generar un token único para el taxi
-    token = secrets.token_hex(16)
-
-    cursor.execute("INSERT INTO taxis (id, token, IP) VALUES (%s, %s, %s)",
-                    (taxi_id, token, ip))
+    # Insertar el nuevo taxi en la base de datos sin generar token
+    cursor.execute("INSERT INTO taxis (id, IP) VALUES (%s, %s)", (taxi_id, ip))
     conexion.commit()
     conexion.close()
 
     printInfo(f"Taxi {taxi_id} se ha registrado")
     #printLog(taxi_id, f"Taxi {taxi_id} se ha registrado")
 
-    return jsonify({"message": f"Registrado", "token": token}), 201
+    return jsonify({"message": f"Taxi {taxi_id} registrado correctamente"}), 201
 
 # FUNCIONA
 @app.route("/borrarTaxi/<taxi_id>", methods=["DELETE"])

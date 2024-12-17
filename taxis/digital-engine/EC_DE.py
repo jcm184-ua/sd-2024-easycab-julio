@@ -25,7 +25,6 @@ HOST = "" # Simbólico, nos permite escuchar en todas las interfaces de red
 LISTEN_PORT = None
 THIS_ADDR = None
 ID = None
-TOKEN = None
 API_URL = "http://localhost:5001"
 
 sensoresConectados = 0
@@ -386,7 +385,6 @@ def autenticarEnCentral():
     hiloBroker.start()
 
 def registrarTaxi():
-    global TOKEN  # Indicamos que TOKEN es una variable global
     try:
         print("Intentando registrar el taxi...")
 
@@ -398,9 +396,8 @@ def registrarTaxi():
 
         # Si la respuesta tiene un código de éxito
         if response.status_code == 201:
-            data = response.json()
-            TOKEN = data["token"]  # Guardar el token en la constante global
-            print(f"Taxi registrado exitosamente. Token recibido: {TOKEN}")
+            mensaje = response.json().get("message", response.text)
+            print(f"{mensaje}")
         else:
             # Manejo de errores
             error_message = response.json().get("error", response.text)
@@ -409,7 +406,6 @@ def registrarTaxi():
         print(f"Error de conexión al API: {e}")
 
 def darDeBaja():
-    global TOKEN  # Indicamos que TOKEN es una variable global
     try:
         print("Intentando dar de baja el registrar el taxi...")
 
@@ -418,7 +414,6 @@ def darDeBaja():
 
         # Si la respuesta tiene un código de éxito
         if response.status_code == 200:
-            TOKEN = None
             print(f"Taxi eliminado exitosamente.")
         else:
             # Manejo de errores
@@ -430,7 +425,6 @@ def darDeBaja():
 def main():
     while True:
         print(f"{COLORES_ANSI.BLUE}=== Menú de Taxi {ID} ===")
-        print(f"TOKEN: {TOKEN}")
         print("Seleccione una opción:")
         print("1. Registrar")
         print("2. Dar de Baja")

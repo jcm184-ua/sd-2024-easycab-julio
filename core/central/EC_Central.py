@@ -130,7 +130,7 @@ def dbToJSON():
 
     try:
         # Consultar datos de la tabla de taxis
-        cursor.execute("SELECT id, estado, sensores, posicion, cliente, destino, token FROM taxis")
+        cursor.execute("SELECT id, estado, sensores, posicion, cliente, destino FROM taxis")
         taxis = [
             {
                 "id": row[0],
@@ -138,8 +138,7 @@ def dbToJSON():
                 "sensores": row[2],
                 "posicion": row[3],
                 "cliente": row[4],
-                "destino": row[5],
-                "token": row[6]
+                "destino": row[5]
             }
             for row in cursor.fetchall()
         ]
@@ -339,7 +338,7 @@ def comprobarTaxi(idTaxi):
     try:
         conexion, cursor = generarConexionBBDD(DATABASE_USER, DATABASE_PASSWORD)
 
-        cursor.execute("SELECT token FROM taxis WHERE id = ?", (idTaxi,))
+        cursor.execute("SELECT id FROM taxis WHERE id = ?", (idTaxi,))
         resultado = cursor.fetchone()
 
         if resultado is None:
