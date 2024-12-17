@@ -167,9 +167,9 @@ def gestionarConexionCentral():
             socket = abrirSocketCliente(CENTRAL_ADDR)
             printInfo("Intentando autenticar en central.")
             if estadoSensores:
-                enviarMensajeCliente(socket, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST][OK][{posX},{posY}][{clienteARecoger}][{clienteRecogido}][{token}]")
+                enviarMensajeCliente(socket, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST][OK][{posX},{posY}][{clienteARecoger}][{clienteRecogido}]")
             else:
-                enviarMensajeCliente(socket, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST][KO][{posX},{posY}][{clienteARecoger}][{clienteRecogido}][{token}]")
+                enviarMensajeCliente(socket, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST][KO][{posX},{posY}][{clienteARecoger}][{clienteRecogido}]")
             
             #TODO: ¿Alguna mejor forma de esperar a que central responda?
             time.sleep(0.2)
@@ -326,7 +326,7 @@ def manejarMovimientos():
     try:
         while True:
             if estadoSensores:
-                                #printDebug("Iteración manejar movimientos.")
+                #printDebug("Iteración manejar movimientos.")
                 #printDebug(f"{clienteRecogido}, {cltX}, {cltY}")
                 # Mover hacia el cliente
                 if irBase:
@@ -384,7 +384,7 @@ def manejarMovimientos():
                 time.sleep(5    )
     except Exception as e:
         pass
-        #printError(f"Excepción {type(e)} inesperada en manejarMovimientos(): {e}")
+        printError(f"Excepción {type(e)} inesperada en manejarMovimientos(): {e}")
 
 def autenticarEnCentral():
     hiloEstado = threading.Thread(target=gestionarEstado)

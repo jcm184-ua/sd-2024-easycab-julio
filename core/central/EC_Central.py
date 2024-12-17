@@ -146,7 +146,8 @@ def dbToJSON():
                 "sensores": row[2],
                 "posicion": row[3],
                 "cliente": row[4],
-                "destino": row[5]
+                "destino": row[5],
+                "token": row[6]
             }
             for row in cursor.fetchall()
         ]
@@ -194,7 +195,8 @@ def exportDB():
                 "sensores": row[2],
                 "posicion": row[3],
                 "cliente": row[4],
-                "destino": row[5]
+                "destino": row[5],
+                "token": row[6]
             }
             for row in cursor.fetchall()
         ]
