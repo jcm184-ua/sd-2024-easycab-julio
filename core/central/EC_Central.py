@@ -31,6 +31,7 @@ DATABASE_PASSWORD = 'sd2024_central'
 
 WEATHER_IP = None
 WEATHER_PORT = None
+API_PORT = None
 
 BROADCAST_TOKEN = str(uuid.uuid4())
 
@@ -41,12 +42,13 @@ mapa = Map()
 irBase = False
 climaAdverso = False
 
+
 app = Flask(__name__)
 CORS(app)
 
 def comprobarArgumentos(argumentos):
-    if len(argumentos) != 6:
-        exitFatal("Necesito estos argumentos: <LISTEN_PORT> <BROKER_IP> <BROKER_PORT> <WEATHER_IP> <WEATHER_PORT>")        
+    if len(argumentos) != 7:
+        exitFatal("Necesito estos argumentos: <LISTEN_PORT> <BROKER_IP> <BROKER_PORT> <WEATHER_IP> <WEATHER_PORT> <API_PORT>")        
     printInfo("Número de argumentos correcto.")
 
 def asignarConstantes(argumentos):
@@ -65,6 +67,8 @@ def asignarConstantes(argumentos):
     WEATHER_IP = argumentos[4]
     global WEATHER_PORT
     WEATHER_PORT = int(argumentos[5])
+    global API_PORT
+    API_PORT = int(argumentos[6])
     printInfo("Constantes asignadas.")
 
 def obtenerIP(ID):
@@ -666,8 +670,6 @@ def obtenerLogs():
         return "No hay logs disponibles para el día de hoy.", 404
 
 def main():
-    comprobarArgumentos(sys.argv)
-    asignarConstantes(sys.argv)
     leerConfiguracionMapa()
     leerBBDD()
 
@@ -696,10 +698,12 @@ def main():
     hiloClima.start()
 
 if __name__ == "__main__":
+    comprobarArgumentos(sys.argv)
+    asignarConstantes(sys.argv)
     printInfo("Iniciando EC_Central...")
 
     # Ejecuta el servidor Flask en un hilo separado
-    hiloApi = threading.Thread(target=app.run, kwargs={'debug': True, 'use_reloader': False})
+    hiloApi = threading.Thread(target=app.run, kwargs={'debug': True, 'port': API_PORT, 'use_reloader': False})
     hiloApi.start()
 
     # Llama al resto de tu lógica principal
