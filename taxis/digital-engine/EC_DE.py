@@ -390,8 +390,8 @@ def manejarMovimientos():
                         except Exception as e:
                             raise Exception(f"Error al mover hacia el destino. {e}")
 
-                if posX == 1 and posY == 1 and irBase:
-                    desconectar()
+            if posX == 1 and posY == 1 and irBase:
+                desconectar()
 
                 time.sleep(1)  # Control de la tasa del bucle principal
             else:
