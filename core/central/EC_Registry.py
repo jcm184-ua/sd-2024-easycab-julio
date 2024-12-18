@@ -13,11 +13,13 @@ DATABASE_PASSWORD = 'sd2024_registry'
 
 LISTEN_PORT = None
 
+SERV_CERTIFICATE = './resources/certServ.pem'
+
 app = Flask(__name__)
 
 def comprobarArgumentos(argumentos):
     if len(argumentos) != 2:
-        exitFatal("Necesito estos argumentos: <LISTEN_PORT>")        
+        exitFatal("Necesito estos argumentos: <LISTEN_PORT>")
     printInfo("Número de argumentos correcto.")
 
 def asignarConstantes(argumentos):
@@ -96,4 +98,4 @@ if __name__ == "__main__":
     asignarConstantes(sys.argv)
 
     printInfo("Iniciando EC_Registry...")
-    app.run(debug=True, port=LISTEN_PORT)
+    app.run(debug=True, port=LISTEN_PORT, ssl_context=(SERV_CERTIFICATE, SERV_CERTIFICATE))

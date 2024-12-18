@@ -6,7 +6,8 @@ import re
 from EC_Shared import *
 import time
 
-from EC_Shared import *
+from resources.privateKey import BROKER_KEY
+from cryptography.fernet import Fernet
 
 SIZE = 20
 TILE_SIZE = 30  # Tamaño de cada celda del mapa
@@ -141,20 +142,23 @@ class Map:
 # Función en segundo plano para leer de Kafka
 def consumidorErrores(TOPIC_ERRORES_MAPA, BROKER_ADDR, add_error_callback):
     consumer = conectarBrokerConsumidor(BROKER_ADDR, TOPIC_ERRORES_MAPA)
+    fernet = Fernet(BROKER_KEY)
     while True:
         for mensaje in consumer:
-            camposMensaje = re.findall('[^\[\]]+', mensaje.value.decode(FORMAT))
+            camposMensaje = re.findall('[^\[\]]+', (fernet.decrypt(mensaje.value)).decode(FORMAT))
             recibidor = camposMensaje[0].split("->")[0]
             add_error_callback(f"{recibidor}: {camposMensaje[1]}")
 
 def consumidorEstados(TOPIC_ESTADOS_MAPA, BROKER_ADDR, add_taxi_callback, add_client_callback, clear_taxi_table_callback, clear_client_table_callback):
     consumer = conectarBrokerConsumidor(BROKER_ADDR, TOPIC_ESTADOS_MAPA)
+    fernet = Fernet(BROKER_KEY)
 
     while True:
         for mensaje in consumer:
+            mensajeDesencriptado = (fernet.decrypt(mensaje.value)).decode(FORMAT)
             try:
                 taxis_clientes = {}
-                data = json.loads(mensaje.value.decode('utf-8'))
+                data = json.loads(mensajeDesencriptado)
                 # Limpiar las tablas de taxis y clientes
                 clear_taxi_table_callback()
                 clear_client_table_callback()

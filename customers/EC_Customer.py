@@ -10,6 +10,9 @@ sys.path.append('../shared')
 from EC_Map import Map
 from EC_Shared import *
 
+from resources.privateKey import BROKER_KEY
+from cryptography.fernet import Fernet
+
 BROKER_IP = None
 BROKER_PORT = None
 BROKER_ADDR = None
@@ -50,32 +53,34 @@ def leerServicios():
 
 def esperarMensaje():
     global enServicio
+    fernet = Fernet(BROKER_KEY)
 
-    conexion = conectarBrokerConsumidor(BROKER_ADDR, TOPIC_CLIENTES)
+    consumidor = conectarBrokerConsumidor(BROKER_ADDR, TOPIC_CLIENTES)
     while True:
-        for mensaje in conexion:
+        for mensaje in consumidor:
+
             #printDebug(f"Mensaje recibido: {mensaje.value.decode(FORMAT)}")
-            camposMensaje = re.findall('[^\[\]]+', mensaje.value.decode(FORMAT))
+            camposMensaje = re.findall('[^\[\]]+', (fernet.decrypt(mensaje.value)).decode(FORMAT))
             if camposMensaje[0] == f"EC_Central->EC_Customer_{ID}":
-            
+
                 if camposMensaje[1] == "OK":
                     enServicio = True
                     printInfo("Me han aceptado el servicio.")
-                    
+
                 elif camposMensaje[1] == "KO":
-                    enServicio = False   
+                    enServicio = False
                     printInfo("Me han denegado el servicio.")
                     break
-                
+
                 elif camposMensaje[1] == "RECOGIDO":
                     enServicio = True
                     printInfo("Me han recogido.")
-                
+
                 elif camposMensaje[1] == "EN_DESTINO":
                     enServicio = False
                     printInfo("Me han dejado en destino.")
                     break
-            
+
         if not enServicio:
             break
             #conexion.close()
@@ -93,7 +98,7 @@ def evaluarMensaje(mensajeRecibido):
 
 def solicitarServicio(servicio):
     printInfo(f"Procedo a solicitar el servicio {servicio}.")
-    publicarMensajeEnTopic(f"[EC_Customer_{ID}->EC_Central][{servicio}]", TOPIC_CLIENTES, BROKER_ADDR) # (Solicitar servicio
+    publicarMensajeEnTopic(f"[EC_Customer_{ID}->EC_Central][{servicio}]", TOPIC_CLIENTES, BROKER_ADDR, BROKER_KEY) # (Solicitar servicio
 
     esperarMensaje()
     #threading.Thread(target=esperarMensaje).start()
@@ -116,10 +121,10 @@ def main():
         while enServicio:
             printInfo("Esperando a que finalice el servicio anterior...")
             time.sleep(1)
-        
+
         solicitarServicio(servicio)
 
-        
+
 
         printInfo("Esperando 4 segundos...")
         time.sleep(4)
