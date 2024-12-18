@@ -267,7 +267,7 @@ def gestionarBroker():
             else:
                 # TODO: Informar mas que decir que error
                 pass
-                printInfo(f"Mensaje desconocido descartado: {mensajeDesencriptado}.")
+                printInfo(f"Mensaje desconocido descartado: {(fernet.decrypt(mensaje.value)).decode(FORMAT)}.")
 
 
 # ID del servicio a obtener id
