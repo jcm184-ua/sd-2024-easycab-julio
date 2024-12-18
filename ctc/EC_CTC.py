@@ -16,7 +16,7 @@ CITY_JSON_PATH = "city.json"
 
 def comprobarArgumentos(argumentos):
     if len(argumentos) != 2:
-        exitFatal("Necesito estos argumentos: <LISTEN_PORT>")        
+        exitFatal("Necesito estos argumentos: <LISTEN_PORT>")
     printInfo("Número de argumentos correcto.")
 
 def asignarConstantes(argumentos):

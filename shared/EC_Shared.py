@@ -5,6 +5,7 @@ import json
 import sys
 import mariadb
 import os
+from cryptography.fernet import Fernet
 
 HEADER = 64
 FORMAT = 'utf-8'
@@ -159,31 +160,37 @@ def conectarBrokerConsumidor(broker_addr, topic):
         # Broker no tiene que ser resiliente
         exitFatal(f"Error al conectar al broker como consumidor: {e}.")
 
-def publicarMensajeEnTopic(mensaje, topic, broker_addr):
+def publicarMensajeEnTopic(mensaje, topic, broker_addr, key):
     try:
         printInfo(f"Conectando al broker en la dirección ({broker_addr}) como productor.")
         conexion = KafkaProducer(bootstrap_servers=broker_addr)
-        conexion.send(topic,(mensaje.encode(FORMAT)))
-        printInfo(f"Mensaje {mensaje} publicado en topic {topic}.")
+        printInfo(f"Encriptando {mensaje} con la clave {key}.")
+        fernet = Fernet(key)
+        mensajeEncriptado = fernet.encrypt(mensaje.encode(FORMAT))
+        printInfo("Mensaje encriptado: " + str(mensajeEncriptado))
+        conexion.send(topic,(mensajeEncriptado))
+        printInfo(f"Mensaje {mensajeEncriptado} publicado en topic {topic}.")
         conexion.close()
         printInfo("Desconectado del broker como productor.")
 
     except Exception as e:
         # Broker no tiene que ser resiliente
-        exitFatal(f"Error al publicar mensaje en el topic: {e}.")
+        exitFatal(f"Error al publicar mensaje en el topic: {e.__class__}, {e}.")
 
-def publicarMensajeEnTopicSilent(mensaje, topic, broker_addr):
+def publicarMensajeEnTopicSilent(mensaje, topic, broker_addr, key):
     try:
         printInfo(f"Conectando al broker en la dirección ({broker_addr}) como productor.")
         conexion = KafkaProducer(bootstrap_servers=broker_addr)
-        conexion.send(topic,(mensaje.encode(FORMAT)))
-        printInfo(f"Mensaje publicado en topic {topic}.")
+        fernet = Fernet(key)
+        mensajeEncriptado = fernet.encrypt(mensaje.encode(FORMAT))
+        conexion.send(topic,(mensajeEncriptado))
+        printInfo(f"Mensaje encriptado y publicado en topic {topic}.")
         conexion.close()
         printInfo("Desconectado del broker como productor.")
 
     except Exception as e:
         # Broker no tiene que ser resiliente
-        exitFatal(f"Error al publicar mensaje en el topic: {e}.")
+        exitFatal(f"Error al publicar mensaje slienciosamente en el topic: {e}.")
 
 def generarConexionBBDD(usuario, contrasena):
     try:
