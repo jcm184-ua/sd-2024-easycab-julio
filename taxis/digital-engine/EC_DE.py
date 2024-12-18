@@ -29,7 +29,7 @@ REGISTRY_IP = None
 REGISTRY_PORT = None
 API_URL = None
 
-CLI_CERTIFICATE  = './resources/certCli.pem'
+SERV_CERTIFICATE  = './resources/certServ.pem'
 hostname = 'localhost'
 context = ssl._create_unverified_context()
 
@@ -83,7 +83,7 @@ def asignarConstantes(argumentos):
     global REGISTRY_PORT
     REGISTRY_PORT = int(argumentos[8])
     global API_URL
-    API_URL = f"http://{REGISTRY_IP}:{REGISTRY_PORT}"
+    API_URL = f"https://{REGISTRY_IP}:{REGISTRY_PORT}"
     printInfo("Constantes asignadas.")
 
 def gestionarEstado():
@@ -408,7 +408,7 @@ def registrarTaxi():
         print("Intentando registrar el taxi...")
 
         # Llamada al endpoint de registro
-        response = requests.put(f"{API_URL}/registrar/{ID}")
+        response = requests.put(f"{API_URL}/registrar/{ID}", verify=False)
 
         # Si la respuesta tiene un código de éxito
         if response.status_code == 201:
@@ -426,7 +426,7 @@ def darDeBaja():
         print("Intentando dar de baja el registrar el taxi...")
 
         # Llamada al endpoint de registro
-        response = requests.delete(f"{API_URL}/borrarTaxi/{ID}")
+        response = requests.delete(f"{API_URL}/borrarTaxi/{ID}", verify=False)
 
         # Si la respuesta tiene un código de éxito
         if response.status_code == 200:
