@@ -623,7 +623,6 @@ def inputBase():
 def verificarClima():
     global climaAdverso
     WEATHER_SERVER = f"http://{WEATHER_IP}:{WEATHER_PORT}/consultarClima"
-
     while True:
         try:
             response = requests.get(WEATHER_SERVER)
@@ -640,11 +639,11 @@ def verificarClima():
 
                 #printLog("CENTRAL", data["message"])
             else:
-                printError("Error al consultar el clima.")
+                printError(f"Error al consultar el clima. {data['message']}")
                 climaAdverso = True
                 #printLog("CENTRAL", "Error al consultar el clima.")
         except Exception as e:
-            printWarning(f"Servidor de clima innacesible.")
+            printWarning(f"Servidor de clima innacesible. {e}") 
             climaAdverso = True
             #printLog("CENTRAL", f"Servidor de clima innacesible.")
         finally:
@@ -655,11 +654,15 @@ def verificarClima():
 def estadoActual():
     try:
         listado = exportDB()
+        
         if listado:
             data = json.loads(listado)
             data["taxis"] = [taxi for taxi in data["taxis"] if taxi["estado"] != "desconectado"]
             listado = json.dumps(data, indent=4)
-
+        
+        if listado == None:
+            return f"Error al obtener el estado actual del mapa.", 500
+            
         return listado, 200
     except Exception as e:
         return f"Error al obtener el estado actual del mapa: {e}", 500
@@ -712,7 +715,7 @@ if __name__ == "__main__":
     ejecutarSentenciaBBDD(f"UPDATE taxis SET token = NULL", DATABASE_USER, DATABASE_PASSWORD)
 
     # Ejecuta el servidor Flask en un hilo separado
-    hiloApi = threading.Thread(target=app.run, kwargs={'debug': True, 'port': FRONT_API_PORT, 'use_reloader': False})
+    hiloApi = threading.Thread(target=app.run, kwargs={'debug': True, 'port': FRONT_API_PORT, 'host':'0.0.0.0', 'use_reloader': False})
     hiloApi.start()
 
     # Llama al resto de tu lógica principal
