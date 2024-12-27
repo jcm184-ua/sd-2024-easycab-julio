@@ -98,4 +98,4 @@ if __name__ == "__main__":
     asignarConstantes(sys.argv)
 
     printInfo("Iniciando EC_Registry...")
-    app.run(debug=True, port=LISTEN_PORT, ssl_context=(SERV_CERTIFICATE, SERV_CERTIFICATE))
+    app.run(debug=True, port=LISTEN_PORT, host='0.0.0.0', ssl_context=(SERV_CERTIFICATE, SERV_CERTIFICATE))

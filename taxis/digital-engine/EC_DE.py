@@ -267,7 +267,7 @@ def gestionarBroker():
             else:
                 # TODO: Informar mas que decir que error
                 pass
-                printInfo(f"Mensaje desconocido descartado: {mensajeDesencriptado}.")
+                printInfo(f"Mensaje desconocido descartado: {(fernet.decrypt(mensaje.value)).decode(FORMAT)}.")
 
 
 # ID del servicio a obtener id
@@ -390,6 +390,9 @@ def manejarMovimientos():
                         except Exception as e:
                             raise Exception(f"Error al mover hacia el destino. {e}")
 
+            if posX == 1 and posY == 1 and irBase:
+                desconectar()
+
                 time.sleep(1)  # Control de la tasa del bucle principal
             else:
                 printInfo("Sensores no operativos. No se puede realizar el movimiento.")
@@ -407,6 +410,10 @@ def autenticarEnCentral():
 
     hiloBroker = threading.Thread(target=gestionarBroker)
     hiloBroker.start()
+
+def desconectar():
+    printInfo("Desconectando...")
+    os.execv(sys.executable, [sys.executable] + sys.argv)
 
 def registrarTaxi():
     try:
