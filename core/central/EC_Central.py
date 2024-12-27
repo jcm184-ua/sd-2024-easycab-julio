@@ -136,7 +136,7 @@ def leerBBDD():
     for cliente in clientes:
         mapa.setPosition(f"cliente_{cliente[0]}", int(cliente[1].split(",")[0]), int(cliente[1].split(",")[1]))
         #printInfo(f"Cargado cliente {cliente[0]} con posición {cliente[1]}.")
-    printInfo(f"Ubiación clientes cargada desde BBDD.")
+    printInfo(f"Ubicación clientes cargada desde BBDD.")
     dbToJSON()
     conexion.close()
 
