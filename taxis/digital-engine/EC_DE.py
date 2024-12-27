@@ -267,7 +267,7 @@ def gestionarBroker():
             else:
                 # TODO: Informar mas que decir que error
                 pass
-                printInfo(f"Mensaje desconocido descartado: {(fernet.decrypt(mensaje.value)).decode(FORMAT)}.")
+                #printDebug(f"Mensaje formato desconocido descartado: {(fernet.decrypt(mensaje.value)).decode(FORMAT)}.")
 
 
 # ID del servicio a obtener id
@@ -402,14 +402,19 @@ def manejarMovimientos():
         printError(f"Excepción {type(e)} inesperada en manejarMovimientos(): {e}")
 
 def autenticarEnCentral():
-    hiloEstado = threading.Thread(target=gestionarEstado)
-    hiloEstado.start()
-
     hiloSocketCentral = threading.Thread(target=gestionarConexionCentral)
     hiloSocketCentral.start()
 
     hiloBroker = threading.Thread(target=gestionarBroker)
     hiloBroker.start()
+
+    # Probablemente mandemos un primer estado antes de tener token, pero no importa
+    # ya que en la propia autentificación mandamos el estado. Aún así, para
+    # evitar situaciones en las que el estado cambie entre login y recepción de token:
+    while token == None:
+        pass
+    hiloEstado = threading.Thread(target=gestionarEstado)
+    hiloEstado.start()
 
 def desconectar():
     printInfo("Desconectando...")
