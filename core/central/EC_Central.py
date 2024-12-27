@@ -283,15 +283,18 @@ def gestionarBrokerClientes():
                 idCliente = camposMensaje[0].split("->")[0][12:]
                 localizacion = camposMensaje[1]
                 printInfo(f"Solicitud de servicio recibida, cliente {idCliente}, destino {localizacion}.")
+                mapa.loguearCliente(f"cliente_{idCliente}")
 
                 if mapa.getPosition(f"localizacion_{localizacion}") is None:
                     printWarning(f"La localización {localizacion} no existe. Cancelando servicio a cliente {idCliente}.")
+                    mapa.desloguearCliente(f"cliente_{idCliente}")
                     publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{idCliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR, BROKER_KEY)
                 else:
                     #ejecutarSentenciaBBDD(f"UPDATE clientes SET IP = '{mensaje.key.decode(FORMAT)}' WHERE id = '{idCliente}'", DATABASE_USER, DATABASE_PASSWORD)
                     printDebug(f"Estado de los taxis (Conectados, Libres): {taxisConectados}, {taxisLibres}.")
                     if len(taxisLibres) < 1:
                         printWarning(f"No hay taxis disponibles. Cancelando servicio a cliente {idCliente}.")
+                        mapa.desloguearCliente(f"cliente_{idCliente}")
                         publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{idCliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR, BROKER_KEY)
                     else:
                         taxiElegido = taxisLibres.pop()
@@ -386,7 +389,7 @@ def gestionarBrokerTaxis():
                     idCliente = camposMensaje[4]
 
                     publicarMensajeEnTopic(f"EC_Central->EC_Customer_{idCliente}[EN_DESTINO]", TOPIC_CLIENTES, BROKER_ADDR, BROKER_KEY)
-
+                    mapa.desloguearCliente(f"cliente_{idCliente}")
                     mapa.deactivateTaxi(idTaxi)
                     publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Llevado al cliente {camposMensaje[4]} a su destino", TOPIC_ERRORES_MAPA, BROKER_ADDR, BROKER_KEY)
                     printInfo(f"[EC_DE_{idTaxi}] Llevado al cliente {camposMensaje[4]} a su destino")
@@ -402,6 +405,9 @@ def gestionarBrokerTaxis():
             #printInfo(mensaje)
             #printInfo(mensaje.value.decode(FORMAT))
             printError(f"Mensaje desconocido recibido en {TOPIC_TAXIS} : {mensaje.value.decode(FORMAT)}.")
+
+        #Para ir viendo los movimientos y el estado del tablero en logs
+        mapa.print()
 
 def comprobarTaxi(idTaxi):
     try:
