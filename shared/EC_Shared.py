@@ -190,7 +190,7 @@ def publicarMensajeEnTopicSilent(mensaje, topic, broker_addr, key):
 
     except Exception as e:
         # Broker no tiene que ser resiliente
-        exitFatal(f"Error al publicar mensaje slienciosamente en el topic: {e}.")
+        exitFatal(f"Error al publicar mensaje silenciosamente en el topic: {e}.")
 
 def generarConexionBBDD(usuario, contrasena):
     try:
