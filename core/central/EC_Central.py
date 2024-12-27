@@ -126,7 +126,8 @@ def leerBBDD():
     cursor.execute("SELECT id, posicion FROM taxis")
     taxis = cursor.fetchall()
     for taxi in taxis:
-        mapa.setPosition(f"taxi_{taxi[0]}", int(taxi[1].split(",")[0]), int(taxi[1].split(",")[1]))
+        if taxi[1] != "-,-": # No incluir a los que no tienen posición
+            mapa.setPosition(f"taxi_{taxi[0]}", int(taxi[1].split(",")[0]), int(taxi[1].split(",")[1]))
         #printDebug(f"Cargado taxi {taxi[0]} con posición {taxi[1]}.")
     printInfo(f"Ubiación taxis cargada desde BBDD.")
 
@@ -474,7 +475,7 @@ def autenticarTaxi(conexion, direccion):
             mapa.activateTaxi(idTaxi)
             if camposMensaje[5] == "True":
                 ## El cliente ha sido recogido
-                ejecutarSentenciaBBDD(f"UPDATE clientes SET posicion = '{camposMensaje[3].split(',')[0]},{camposMensaje[3].split(',')[1]}' WHERE id = {camposMensaje[4]}", DATABASE_USER, DATABASE_PASSWORD)
+                
                 mapa.setPosition(f"cliente_{camposMensaje[4]}", camposMensaje[3].split(',')[0], camposMensaje[3].split(',')[1])
                 ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'servicio' WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
             else:
@@ -486,7 +487,15 @@ def autenticarTaxi(conexion, direccion):
     #[EC_Central->EC_DE_1][AUTHORIZED][1,2][Cliente][Destino]
     taxiBBDD = ejecutarSentenciaBBDD(f"SELECT * FROM taxis WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
 
+    if taxiBBDD[0][3] == "-,-": # AÑADIR AL MAPA EN INICIO EN PRIMERA CONEXIÓN
+        ejecutarSentenciaBBDD(f"UPDATE taxis SET posicion = '1,1' WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
+        taxiBBDD = ejecutarSentenciaBBDD(f"SELECT * FROM taxis WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
+
+
     enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][AUTHORIZED][{tokenTaxi}][{BROADCAST_TOKEN}][{taxiBBDD[0][3].split(',')[0]},{taxiBBDD[0][3].split(',')[1]}][{taxiBBDD[0][4]}][{taxiBBDD[0][5]}]")
+    mapa.setPosition(f"taxi_{idTaxi}", taxiBBDD[0][3].split(',')[0], taxiBBDD[0][3].split(',')[1])
+    mapa.print()
+    
     enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][{BROADCAST_TOKEN}][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]")
 
     publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Autorizado.", TOPIC_ERRORES_MAPA, BROKER_ADDR, BROKER_KEY)

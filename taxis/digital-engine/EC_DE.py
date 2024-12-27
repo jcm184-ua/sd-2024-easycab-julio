@@ -267,7 +267,7 @@ def gestionarBroker():
             else:
                 # TODO: Informar mas que decir que error
                 pass
-                printInfo(f"Mensaje desconocido descartado: {(fernet.decrypt(mensaje.value)).decode(FORMAT)}.")
+                #printDebug(f"Mensaje formato desconocido descartado: {(fernet.decrypt(mensaje.value)).decode(FORMAT)}.")
 
 
 # ID del servicio a obtener id
@@ -291,7 +291,7 @@ import time
 def mover(x, y):
     try:
 
-        global posX, posY, clienteRecogido, clienteARecoger, idLocalizacion, estadoSensores
+        global posX, posY, clienteRecogido, clienteARecoger, idLocalizacion
 
         if (x > 20) or (x < 0) or (y > 20) or (y < 0):
             printError("Movimiento demasiado grande")
@@ -390,10 +390,10 @@ def manejarMovimientos():
                         except Exception as e:
                             raise Exception(f"Error al mover hacia el destino. {e}")
 
-            if posX == 1 and posY == 1 and irBase:
-                desconectar()
+                if posX == 1 and posY == 1 and irBase:
+                    desconectar()
 
-                time.sleep(1)  # Control de la tasa del bucle principal
+                    time.sleep(1)  # Control de la tasa del bucle principal
             else:
                 printInfo("Sensores no operativos. No se puede realizar el movimiento.")
                 time.sleep(5)
@@ -402,14 +402,19 @@ def manejarMovimientos():
         printError(f"Excepción {type(e)} inesperada en manejarMovimientos(): {e}")
 
 def autenticarEnCentral():
-    hiloEstado = threading.Thread(target=gestionarEstado)
-    hiloEstado.start()
-
     hiloSocketCentral = threading.Thread(target=gestionarConexionCentral)
     hiloSocketCentral.start()
 
     hiloBroker = threading.Thread(target=gestionarBroker)
     hiloBroker.start()
+
+    # Probablemente mandemos un primer estado antes de tener token, pero no importa
+    # ya que en la propia autentificación mandamos el estado. Aún así, para
+    # evitar situaciones en las que el estado cambie entre login y recepción de token:
+    while token == None:
+        pass
+    hiloEstado = threading.Thread(target=gestionarEstado)
+    hiloEstado.start()
 
 def desconectar():
     printInfo("Desconectando...")

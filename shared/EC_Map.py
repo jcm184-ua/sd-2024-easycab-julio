@@ -39,6 +39,8 @@ class Map:
                         if key.startswith('taxi'):
                             if key in self.taxisActivos:
                                 taxi = f"{COLORES_ANSI.BACKGROUD_GREEN}{COLORES_ANSI.BLACK}{key[5:]}{COLORES_ANSI.BLACK}{COLORES_ANSI.END_C}"
+                            else:
+                                taxi = f"{COLORES_ANSI.BACKGROUD_RED}{COLORES_ANSI.BLACK}{key[5:]}{COLORES_ANSI.BLACK}{COLORES_ANSI.END_C}"
                         if key.startswith('localizacion'):
                             localizacion = f"{COLORES_ANSI.BACKGROUD_BLUE}{COLORES_ANSI.BLACK}{key[13:]}{COLORES_ANSI.BLACK}{COLORES_ANSI.END_C}"
                         if key.startswith('cliente'):
@@ -114,6 +116,7 @@ class Map:
     def setPosition(self, key, x, y):
         self.diccionarioPosiciones[key] = f"{x},{y}"
         #printDebug(f"Posición de {key} establecida en {x},{y}")
+        #printDebug(self.diccionarioPosiciones)
 
     def move(self, key, x, y):
         initX = x

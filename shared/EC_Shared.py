@@ -164,12 +164,12 @@ def publicarMensajeEnTopic(mensaje, topic, broker_addr, key):
     try:
         printInfo(f"Conectando al broker en la dirección ({broker_addr}) como productor.")
         conexion = KafkaProducer(bootstrap_servers=broker_addr)
-        printInfo(f"Encriptando {mensaje} con la clave {key}.")
+        #printDebug(f"Encriptando {mensaje} con la clave {key}.")
         fernet = Fernet(key)
         mensajeEncriptado = fernet.encrypt(mensaje.encode(FORMAT))
-        printInfo("Mensaje encriptado: " + str(mensajeEncriptado))
+        #printDebug("Mensaje encriptado: " + str(mensajeEncriptado))
         conexion.send(topic,(mensajeEncriptado))
-        printInfo(f"Mensaje {mensajeEncriptado} publicado en topic {topic}.")
+        printInfo(f"Mensaje {mensajeEncriptado} ({mensaje}) publicado en topic {topic}.")
         conexion.close()
         printInfo("Desconectado del broker como productor.")
 
