@@ -42,6 +42,7 @@ mapa = Map()
 
 token = None
 tokenCentral = None
+arrancado = False
 
 posX = None
 posY = None
@@ -165,70 +166,6 @@ def recibirTokensMapaLogin(socket):
         printError(f"Excepción {type(e)} al recibir los tokens y el mapa: {e}.")
         return False
 
-def gestionarConexionCentral():
-    global token, tokenCentral, posX, posY, cltX, cltY, destX, destY, clienteARecoger
-
-    while True:
-        try:
-            socket = abrirSocketCliente(CENTRAL_ADDR)
-            socketSeguro = context.wrap_socket(socket, server_hostname=hostname)
-            print(socketSeguro.version())
-
-            printInfo("Intentando autenticar en central.")
-            if estadoSensores:
-                enviarMensajeCliente(socketSeguro, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST][OK][{posX},{posY}][{clienteARecoger}][{clienteRecogido}]")
-            else:
-                enviarMensajeCliente(socketSeguro, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST][KO][{posX},{posY}][{clienteARecoger}][{clienteRecogido}]")
-
-            #TODO: ¿Alguna mejor forma de esperar a que central responda?
-            time.sleep(0.2)
-
-            while True:
-                mensaje = recibirMensajeCliente(socketSeguro)
-                if mensaje == None:
-                    printWarning(f"Se ha perdido la conexión con EC_Central.")
-                    break
-                else:
-                    camposMensaje = re.findall('[^\[\]]+', mensaje)
-                    if mensaje.startswith(f"[EC_Central->EC_DE_{ID}][AUTHORIZED]"):
-                        token = camposMensaje[2]
-                        tokenCentral = camposMensaje[3]
-                        printInfo("Autentificación correcta.")
-                        posX = camposMensaje[4].split(",")[0]
-                        posY = camposMensaje[4].split(",")[1]
-
-                        if not recibirTokensMapaLogin(socketSeguro):
-                            break # Se ha perdido conexión con el sensor durante el envío del mapas
-                        hiloMovimientos = threading.Thread(target=manejarMovimientos)
-                        hiloMovimientos.start()
-
-                        if camposMensaje[5] != "None":
-                            clienteARecoger = camposMensaje[5]
-                            cltX, cltY = obtenerPosicion(camposMensaje[5], True)
-
-                        if camposMensaje[6] != "None":
-                            destX, destY = obtenerPosicion(camposMensaje[6], False)
-
-                    elif mensaje == f"[EC_Central->EC_DE_{ID}][NOT_AUTHORIZED]":
-                        socketSeguro.close()
-                        printWarning("Autentificación incorrecta.")
-                        break
-                    else:
-                        printError(f"ENGINE: MENSAJE DESCONOCIDO: {mensaje}")
-        except BrokenPipeError as error:
-            printWarning("Se ha perdido la conexión con EC_Central.")
-        except ConnectionRefusedError as error:
-            printWarning("No se ha podido conectar con EC_Central.")
-        except ConnectionResetError as error:
-            printError("Algo ha ocurrido en EC_Central.")
-        except Exception as e:
-            printWarning(f"Excepción {type(e)} inesperada en gestionarConexionCentral(): {e}")
-            break
-        finally:
-            time.sleep(3)
-
-        #Una vez autorizados y con posición, esperar a que se nos indique un servicio
-
 def gestionarBroker():
     global mapa, cltX, cltY, destX, destY, clienteARecoger, idLocalizacion, irBase, clienteRecogido
     fernet = Fernet(BROKER_KEY)
@@ -267,7 +204,7 @@ def gestionarBroker():
             else:
                 # TODO: Informar mas que decir que error
                 pass
-                printInfo(f"Mensaje desconocido descartado: {(fernet.decrypt(mensaje.value)).decode(FORMAT)}.")
+                #printDebug(f"Mensaje formato desconocido descartado: {(fernet.decrypt(mensaje.value)).decode(FORMAT)}.")
 
 
 # ID del servicio a obtener id
@@ -291,7 +228,7 @@ import time
 def mover(x, y):
     try:
 
-        global posX, posY, clienteRecogido, clienteARecoger, idLocalizacion, estadoSensores
+        global posX, posY, clienteRecogido, clienteARecoger, idLocalizacion
 
         if (x > 20) or (x < 0) or (y > 20) or (y < 0):
             printError("Movimiento demasiado grande")
@@ -390,10 +327,10 @@ def manejarMovimientos():
                         except Exception as e:
                             raise Exception(f"Error al mover hacia el destino. {e}")
 
-            if posX == 1 and posY == 1 and irBase:
-                desconectar()
+                if posX == 1 and posY == 1 and irBase:
+                    desconectar()
 
-                time.sleep(1)  # Control de la tasa del bucle principal
+                    time.sleep(1)  # Control de la tasa del bucle principal
             else:
                 printInfo("Sensores no operativos. No se puede realizar el movimiento.")
                 time.sleep(5)
@@ -401,15 +338,83 @@ def manejarMovimientos():
         pass
         printError(f"Excepción {type(e)} inesperada en manejarMovimientos(): {e}")
 
+def arrancar():
+    global arrancado
+    if not arrancado:
+        hiloEstado = threading.Thread(target=gestionarEstado)
+        hiloEstado.start()
+        hiloBroker = threading.Thread(target=gestionarBroker)
+        hiloBroker.start()
+        hiloMovimientos = threading.Thread(target=manejarMovimientos)
+        hiloMovimientos.start()
+
+
 def autenticarEnCentral():
-    hiloEstado = threading.Thread(target=gestionarEstado)
-    hiloEstado.start()
+    global token, tokenCentral, posX, posY, cltX, cltY, destX, destY, clienteARecoger
 
-    hiloSocketCentral = threading.Thread(target=gestionarConexionCentral)
-    hiloSocketCentral.start()
+    reconectar = True
+    while reconectar:
+        try:
+            socket = abrirSocketCliente(CENTRAL_ADDR)
+            socketSeguro = context.wrap_socket(socket, server_hostname=hostname)
+            print(socketSeguro.version())
 
-    hiloBroker = threading.Thread(target=gestionarBroker)
-    hiloBroker.start()
+            printInfo("Intentando autenticar en central.")
+            if estadoSensores:
+                enviarMensajeCliente(socketSeguro, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST][OK][{posX},{posY}][{clienteARecoger}][{clienteRecogido}]")
+            else:
+                enviarMensajeCliente(socketSeguro, f"[EC_DE_{ID}->EC_Central][AUTH_REQUEST][KO][{posX},{posY}][{clienteARecoger}][{clienteRecogido}]")
+
+            #TODO: ¿Alguna mejor forma de esperar a que central responda?
+            time.sleep(0.2)
+ 
+            while True:
+                mensaje = recibirMensajeCliente(socketSeguro)
+                if mensaje == None:
+                    printWarning(f"Se ha perdido la conexión con EC_Central.")
+                    break
+                else:
+                    camposMensaje = re.findall('[^\[\]]+', mensaje)
+                    if mensaje.startswith(f"[EC_Central->EC_DE_{ID}][AUTHORIZED]"):
+                        token = camposMensaje[2]
+                        tokenCentral = camposMensaje[3]
+                        printInfo("Autentificación correcta.")
+                        posX = camposMensaje[4].split(",")[0]
+                        posY = camposMensaje[4].split(",")[1]
+
+                        if not recibirTokensMapaLogin(socketSeguro):
+                            break # Se ha perdido conexión con el socket durante el envío del mapas
+                        
+                        if camposMensaje[5] != "None":
+                            clienteARecoger = camposMensaje[5]
+                            cltX, cltY = obtenerPosicion(camposMensaje[5], True)
+
+                        if camposMensaje[6] != "None":
+                            destX, destY = obtenerPosicion(camposMensaje[6], False)
+
+                        # ARRANCAR TODAS LAS COSAS
+                        arrancar()
+
+                    elif mensaje == f"[EC_Central->EC_DE_{ID}][NOT_AUTHORIZED]":
+                        socketSeguro.close()
+                        printWarning("Autentificación incorrecta.")
+                        reconectar = False
+                        break
+                    else:
+                        printError(f"ENGINE: MENSAJE DESCONOCIDO: {mensaje}")
+        except BrokenPipeError as error:
+            printWarning("Se ha perdido la conexión con EC_Central.")
+        except ConnectionRefusedError as error:
+            printWarning("No se ha podido conectar con EC_Central.")
+        except ConnectionResetError as error:
+            printError("Algo ha ocurrido en EC_Central.")
+        except Exception as e:
+            printWarning(f"Excepción {type(e)} inesperada en autenticarEnCentral(): {e}")
+            break
+        finally:
+            time.sleep(3)
+
+
 
 def desconectar():
     printInfo("Desconectando...")

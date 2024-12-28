@@ -122,7 +122,8 @@ def leerBBDD():
     cursor.execute("SELECT id, posicion FROM taxis")
     taxis = cursor.fetchall()
     for taxi in taxis:
-        mapa.setPosition(f"taxi_{taxi[0]}", int(taxi[1].split(",")[0]), int(taxi[1].split(",")[1]))
+        if taxi[1] != "-,-": # No incluir a los que no tienen posición
+            mapa.setPosition(f"taxi_{taxi[0]}", int(taxi[1].split(",")[0]), int(taxi[1].split(",")[1]))
         #printDebug(f"Cargado taxi {taxi[0]} con posición {taxi[1]}.")
     printInfo(f"Ubiación taxis cargada desde BBDD.")
 
@@ -131,7 +132,7 @@ def leerBBDD():
     for cliente in clientes:
         mapa.setPosition(f"cliente_{cliente[0]}", int(cliente[1].split(",")[0]), int(cliente[1].split(",")[1]))
         #printInfo(f"Cargado cliente {cliente[0]} con posición {cliente[1]}.")
-    printInfo(f"Ubiación clientes cargada desde BBDD.")
+    printInfo(f"Ubicación clientes cargada desde BBDD.")
     dbToJSON()
     conexion.close()
 
@@ -226,15 +227,18 @@ def gestionarBrokerClientes():
                 idCliente = camposMensaje[0].split("->")[0][12:]
                 localizacion = camposMensaje[1]
                 printInfo(f"Solicitud de servicio recibida, cliente {idCliente}, destino {localizacion}.")
+                mapa.loguearCliente(f"cliente_{idCliente}")
 
                 if mapa.getPosition(f"localizacion_{localizacion}") is None:
                     printWarning(f"La localización {localizacion} no existe. Cancelando servicio a cliente {idCliente}.")
+                    mapa.desloguearCliente(f"cliente_{idCliente}")
                     publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{idCliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR, BROKER_KEY)
                 else:
                     #ejecutarSentenciaBBDD(f"UPDATE clientes SET IP = '{mensaje.key.decode(FORMAT)}' WHERE id = '{idCliente}'", DATABASE_USER, DATABASE_PASSWORD)
                     printDebug(f"Estado de los taxis (Conectados, Libres): {taxisConectados}, {taxisLibres}.")
                     if len(taxisLibres) < 1:
                         printWarning(f"No hay taxis disponibles. Cancelando servicio a cliente {idCliente}.")
+                        mapa.desloguearCliente(f"cliente_{idCliente}")
                         publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{idCliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR, BROKER_KEY)
                     else:
                         taxiElegido = taxisLibres.pop()
@@ -329,7 +333,7 @@ def gestionarBrokerTaxis():
                     idCliente = camposMensaje[4]
 
                     publicarMensajeEnTopic(f"EC_Central->EC_Customer_{idCliente}[EN_DESTINO]", TOPIC_CLIENTES, BROKER_ADDR, BROKER_KEY)
-
+                    mapa.desloguearCliente(f"cliente_{idCliente}")
                     mapa.deactivateTaxi(idTaxi)
                     publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Llevado al cliente {camposMensaje[4]} a su destino", TOPIC_ERRORES_MAPA, BROKER_ADDR, BROKER_KEY)
                     printInfo(f"[EC_DE_{idTaxi}] Llevado al cliente {camposMensaje[4]} a su destino")
@@ -345,6 +349,9 @@ def gestionarBrokerTaxis():
             #printInfo(mensaje)
             #printInfo(mensaje.value.decode(FORMAT))
             printError(f"Mensaje desconocido recibido en {TOPIC_TAXIS} : {mensaje.value.decode(FORMAT)}.")
+
+        #Para ir viendo los movimientos y el estado del tablero en logs
+        mapa.print()
 
 def comprobarTaxi(idTaxi):
     try:
@@ -418,7 +425,7 @@ def autenticarTaxi(conexion, direccion):
             mapa.activateTaxi(idTaxi)
             if camposMensaje[5] == "True":
                 ## El cliente ha sido recogido
-                ejecutarSentenciaBBDD(f"UPDATE clientes SET posicion = '{camposMensaje[3].split(',')[0]},{camposMensaje[3].split(',')[1]}' WHERE id = {camposMensaje[4]}", DATABASE_USER, DATABASE_PASSWORD)
+                
                 mapa.setPosition(f"cliente_{camposMensaje[4]}", camposMensaje[3].split(',')[0], camposMensaje[3].split(',')[1])
                 ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'servicio' WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
             else:
@@ -430,7 +437,15 @@ def autenticarTaxi(conexion, direccion):
     #[EC_Central->EC_DE_1][AUTHORIZED][1,2][Cliente][Destino]
     taxiBBDD = ejecutarSentenciaBBDD(f"SELECT * FROM taxis WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
 
+    if taxiBBDD[0][3] == "-,-": # AÑADIR AL MAPA EN INICIO EN PRIMERA CONEXIÓN
+        ejecutarSentenciaBBDD(f"UPDATE taxis SET posicion = '1,1' WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
+        taxiBBDD = ejecutarSentenciaBBDD(f"SELECT * FROM taxis WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
+
+
     enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][AUTHORIZED][{tokenTaxi}][{BROADCAST_TOKEN}][{taxiBBDD[0][3].split(',')[0]},{taxiBBDD[0][3].split(',')[1]}][{taxiBBDD[0][4]}][{taxiBBDD[0][5]}]")
+    mapa.setPosition(f"taxi_{idTaxi}", taxiBBDD[0][3].split(',')[0], taxiBBDD[0][3].split(',')[1])
+    mapa.print()
+    
     enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][{BROADCAST_TOKEN}][{mapa.exportJson()}][{mapa.exportActiveTaxis()}]")
 
     publicarMensajeEnTopic(f"[EC_DE_{idTaxi}] Autorizado.", TOPIC_ERRORES_MAPA, BROKER_ADDR, BROKER_KEY)

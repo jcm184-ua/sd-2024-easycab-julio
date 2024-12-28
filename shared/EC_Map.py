@@ -15,8 +15,15 @@ TILE_SIZE = 30  # Tamaño de cada celda del mapa
 class Map:
     diccionarioPosiciones = {}
     taxisActivos = []
+    clientesLogueados = []
+    clientesADesloguear = []
 
     def print(self):
+        #DEBUGGIN
+        print(self.taxisActivos)
+        print(self.clientesLogueados)
+        print(self.clientesADesloguear)
+
         """ Imprimir el mapa en consola """
         #print("MAPA:")
         #for key, value in self.diccionarioPosiciones.items():
@@ -39,10 +46,13 @@ class Map:
                         if key.startswith('taxi'):
                             if key in self.taxisActivos:
                                 taxi = f"{COLORES_ANSI.BACKGROUD_GREEN}{COLORES_ANSI.BLACK}{key[5:]}{COLORES_ANSI.BLACK}{COLORES_ANSI.END_C}"
+                            else:
+                                taxi = f"{COLORES_ANSI.BACKGROUD_RED}{COLORES_ANSI.BLACK}{key[5:]}{COLORES_ANSI.BLACK}{COLORES_ANSI.END_C}"
                         if key.startswith('localizacion'):
                             localizacion = f"{COLORES_ANSI.BACKGROUD_BLUE}{COLORES_ANSI.BLACK}{key[13:]}{COLORES_ANSI.BLACK}{COLORES_ANSI.END_C}"
                         if key.startswith('cliente'):
-                            cliente = f"{COLORES_ANSI.BACKGROUD_YELLOW}{COLORES_ANSI.BLACK}{key[8:]}{COLORES_ANSI.BLACK}{COLORES_ANSI.END_C}"
+                            if key in self.clientesLogueados:
+                                cliente = f"{COLORES_ANSI.BACKGROUD_YELLOW}{COLORES_ANSI.BLACK}{key[8:]}{COLORES_ANSI.BLACK}{COLORES_ANSI.END_C}"
                 else:
                     print(taxi + localizacion + cliente, end="")
                 print("|", end="")
@@ -114,6 +124,7 @@ class Map:
     def setPosition(self, key, x, y):
         self.diccionarioPosiciones[key] = f"{x},{y}"
         #printDebug(f"Posición de {key} establecida en {x},{y}")
+        #printDebug(self.diccionarioPosiciones)
 
     def move(self, key, x, y):
         initX = x
@@ -130,7 +141,8 @@ class Map:
             return self.diccionarioPosiciones[key]
 
     def activateTaxi(self, idTaxi):
-        self.taxisActivos.append(f"taxi_{idTaxi}")
+        if idTaxi not in self.taxisActivos:
+            self.taxisActivos.append(f"taxi_{idTaxi}")
 
     def deactivateTaxi(self, idTaxi):
         #No deberia protegerlo aqui pero anyway
@@ -138,6 +150,21 @@ class Map:
             self.taxisActivos.remove(f"taxi_{idTaxi}")
         else:
             printWarning(f"Has intentado eliminar el taxi {idTaxi} que no estaba activo.")
+
+    def loguearCliente(self, idCliente):
+        if idCliente in self.clientesADesloguear:
+            self.clientesADesloguear.remove(idCliente)
+        self.clientesLogueados.append(idCliente)
+    
+    def desloguearCliente(self, idCliente):
+        try:
+            
+            self.clientesADesloguear.append(idCliente)
+            time.sleep(5)
+            if idCliente in self.clientesADesloguear:
+                self.clientesLogueados.remove(idCliente)
+        except Exception as e:
+            printWarning("Bug, estamos deslogando un cliente que no existe. eso es que estaba logueado pero no añadido a la lista")
 
 # Función en segundo plano para leer de Kafka
 def consumidorErrores(TOPIC_ERRORES_MAPA, BROKER_ADDR, add_error_callback):
