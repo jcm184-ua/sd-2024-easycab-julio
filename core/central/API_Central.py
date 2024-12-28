@@ -1,15 +1,21 @@
+import datetime
 import json
+import os
 import sys
+from flask import Flask
+from flask_cors import CORS
 
 sys.path.append('../../shared')
 from EC_Shared import *
 
+DATABASE_USER = 'ec_central'
+DATABASE_PASSWORD = 'sd2024_central'
+
 app = Flask(__name__)
 CORS(app)
 
-
 def comprobarArgumentos(argumentos):
-    if len(argumentos) != 2:
+    if len(argumentos) != 3:
         exitFatal("Necesito estos argumentos: <HOST> <LISTEN_PORT>")
     printInfo("Número de argumentos correcto.")
 
@@ -25,7 +31,7 @@ def exportDB():
 
     try:
         # Consultar datos de la tabla de taxis
-        cursor.execute("SELECT id, estado, sensores, posicion, cliente, destino FROM taxis")
+        cursor.execute("SELECT id, estado, sensores, posicion, cliente, destino, token FROM taxis")
         taxis = [
             {
                 "id": row[0],
@@ -65,7 +71,7 @@ def exportDB():
 
         return json_data
     except Exception as e:
-        print(f"Error al exportar la base de datos: {e}")
+        print(f"Error al exportar la base de datos: {e.with_traceback(None)}")
         return None
 
     finally:
@@ -84,7 +90,7 @@ def estadoActual():
         
         if listado:
             data = json.loads(listado)
-            data["taxis"] = [taxi for taxi in data["taxis"] if taxi["estado"] != "desconectado"]
+            #data["taxis"] = [taxi for taxi in data["taxis"] if taxi["estado"] != "desconectado"]
             listado = json.dumps(data, indent=4)
         
         if listado == None:
@@ -98,7 +104,7 @@ def estadoActual():
 @app.route('/logs', methods=['GET'])
 def obtenerLogs():
     fecha_actual = datetime.now().strftime("%Y-%m-%d")
-    nombre_archivo = f"log/logs_{fecha_actual}.log"
+    nombre_archivo = f"aud/auditoria_{fecha_actual}.log"
 
     if os.path.exists(nombre_archivo):
         with open(nombre_archivo, "r") as archivo_log:
@@ -106,7 +112,7 @@ def obtenerLogs():
         return contenido, 200
     else:
         return "No hay logs disponibles para el día de hoy.", 404
-    
+
 if __name__ == "__main__":
     comprobarArgumentos(sys.argv)
     asignarConstantes(sys.argv)
