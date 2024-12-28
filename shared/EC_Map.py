@@ -84,10 +84,14 @@ class Map:
                                 if key in self.taxisActivos:
                                     backgroud_color = "limeGreen"
                                     elementos.append(key[5:])  # Añadir nombre del taxi
+                                else:
+                                    backgroud_color = "red"
+                                    elementos.append(key[5:])  # Añadir nombre del taxi
                             elif key.startswith('cliente'):
-                                if not taxi_dibujado:  # Si no se ha dibujado un taxi
-                                    backgroud_color = "yellow"
-                                elementos.append(key[8:])  # Añadir nombre del cliente
+                                if key in self.clientesLogueados:
+                                    if not taxi_dibujado:  # Si no se ha dibujado un taxi
+                                        backgroud_color = "yellow"
+                                    elementos.append(key[8:])  # Añadir nombre del cliente
 
                     # Si hay un cliente pero no un taxi, se dibuja en amarillo
                     if not taxi_dibujado and any(k.startswith('cliente') for k in self.diccionarioPosiciones.keys() if self.diccionarioPosiciones[k] == f"{i+1},{j+1}"):

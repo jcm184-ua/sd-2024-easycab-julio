@@ -415,7 +415,6 @@ def autenticarEnCentral():
             time.sleep(3)
 
 
-
 def desconectar():
     printInfo("Desconectando...")
     os.execv(sys.executable, [sys.executable] + sys.argv)
