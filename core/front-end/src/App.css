@@ -4,11 +4,11 @@ body {
   font-family: 'Arial', sans-serif;
   background: linear-gradient(135deg, #4a90e2, #9013fe);
   color: #fff;
-  height: 100vh; /* Asegurar que ocupe toda la ventana */
+  min-height: 100vh;
+  overflow-y: auto; /* Permitir desplazamiento vertical */
   display: flex;
   justify-content: center;
-  align-items: center;
-  overflow: hidden; /* Evitar que sobresalga */
+  align-items: flex-start; /* Alinea el contenido al inicio */
 }
 
 .App {
@@ -16,12 +16,13 @@ body {
   flex-direction: column;
   width: 95%;
   max-width: 1400px;
-  height: 100%; /* Ocupa toda la pantalla disponible */
+  height: 100%; /* Asegura que ocupa toda la pantalla */
   background: #1c1c1c;
   border-radius: 10px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-  overflow-x: auto; /* Evitar que elementos internos sobresalgan */
+  overflow: hidden; /* Importante para evitar doble scroll */
 }
+
 
 .header {
   padding: 15px;
@@ -42,8 +43,8 @@ body {
   flex-direction: column;
   gap: 20px;
   padding: 20px;
-  overflow: auto; /* Permitir desplazamiento si es necesario */
-  max-height: calc(100vh - 100px); /* Limitar la altura paparara que aparezca scrollbar */
+  overflow-y: auto; /* Permitir desplazamiento vertical */
+  height: calc(100vh - 120px); /* Espacio restante excluyendo header y footer */
 }
 
 .tablas-container {
@@ -53,10 +54,9 @@ body {
   background: #333;
   border-radius: 10px;
   padding: 20px;
-  overflow: auto; /* Evitar que las tablas se desborden */
+  overflow-y: auto; /* Añadir scroll vertical si es necesario */
   box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
-  flex: 1; /* Asegurar que ocupe todo el espacio disponible */
-  height: 80vh; 
+  flex: 1; /* Ajusta el tamaño dinámicamente */
 }
 
 .tablas-container h2 {
@@ -79,27 +79,17 @@ body {
   display: flex;
   justify-content: space-between;
   gap: 20px;
-  align-items: flex-start;
-  flex: 1;
-  overflow: hidden; /* Asegurar que no sobresalga */
+  flex: 1; /* Ajusta el tamaño al espacio disponible */
+  overflow-y: auto; /* Scroll vertical para este contenedor */
 }
 
-.Mapa {
-  flex: 3;
-  background: #333;
-  border-radius: 10px;
-  padding: 15px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-  overflow: auto; /* Añadir scroll si el mapa tiene contenido extenso */
-}
-
-.logs-container {
+.Mapa, .logs-container {
   flex: 1;
   background: #272727;
   border-radius: 10px;
   padding: 15px;
-  overflow-y: auto; /* Permitir desplazamiento vertical */
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+  overflow: auto; /* Permitir scroll si es necesario */
+  max-height: 100%; /* Ajustar a la altura disponible */
 }
 
 .logs-container h2 {

@@ -11,17 +11,17 @@ function App() {
       <header className="header">
         <h1>Mapa de Taxis</h1>
       </header>
-      <main className="main-container">
-        <div className="tablas-container">
+      <div className="tablas-container">
           <h2>Información General</h2>
           <TablaTaxis /> {/* Tabla de taxis */}
           <TablaClientes /> {/* Tabla de clientes */}
         </div>
+      <main className="main-container">
         <div className="map-logs-container">
           <Mapa /> {/* Componente de mapa */}
           <Logs /> {/* Componente de logs */}
         </div>
-
+        
       </main>
       <footer className="footer">
         <p>&copy; 2024 - EASYCAB - Álvaro && Julio</p>

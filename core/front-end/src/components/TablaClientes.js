@@ -23,14 +23,13 @@ const TablaClientes = () => {
   }, []);
 
   return (
-    <div className="tabla-clientes-container">
+    <div className="tabla-taxis-container">
       <h1>Información de Clientes</h1>
-      <table className="tabla-clientes">
+      <table className="tabla-taxis">
         <thead>
           <tr>
             <th>ID</th>
-            <th>Nombre</th>
-            <th>Estado</th>
+            <th>Taxi Asignado</th>
             <th>Destino</th>
           </tr>
         </thead>
@@ -38,8 +37,7 @@ const TablaClientes = () => {
           {clientes.map((cliente) => (
             <tr key={cliente.id}>
               <td>{cliente.id}</td>
-              <td>{cliente.nombre || 'NO TIENE'}</td>
-              <td>{cliente.estado || 'NO TIENE'}</td>
+              <td>{cliente.taxiAsignado || 'NO TIENE'}</td>
               <td>{cliente.destino || 'NO TIENE'}</td>
             </tr>
           ))}

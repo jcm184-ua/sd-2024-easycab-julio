@@ -17,7 +17,9 @@ CREATE TABLE IF NOT EXISTS taxis (
 CREATE TABLE IF NOT EXISTS clientes (
     id VARCHAR(255) PRIMARY KEY,
     posicion VARCHAR(255) NOT NULL default "-,-",
-    IP VARCHAR(255)
+    IP VARCHAR(255),
+    destino VARCHAR(255) default NULL CHECK(destino IS NULL or destino = "A" or destino = "B" or destino = "C" or destino = "D" or destino = "E" or destino = "F"),
+    taxiAsignado VARCHAR(255) default NULL
 );
 --INSERT INTO taxis (id, posicion) VALUES (1, "1,1");
 --INSERT INTO taxis (id, posicion) VALUES (2, "1,2");
@@ -26,11 +28,11 @@ CREATE TABLE IF NOT EXISTS clientes (
 --INSERT INTO taxis (id, posicion) VALUES (5, "1,5");
 --INSERT INTO taxis (id, posicion) VALUES (6, "1,6");
 INSERT INTO clientes (id, posicion) VALUES ("a", "15,17");
-INSERT INTO clientes (id, posicion) VALUES ("b", "6,12");
-INSERT INTO clientes (id, posicion) VALUES ("c", "18,15");
-INSERT INTO clientes (id, posicion) VALUES ("d", "3,5");
-INSERT INTO clientes (id, posicion) VALUES ("e", "7,8");
-INSERT INTO clientes (id, posicion) VALUES ("f", " 13, 14");
+--INSERT INTO clientes (id, posicion) VALUES ("b", "6,12");
+--INSERT INTO clientes (id, posicion) VALUES ("c", "18,15");
+--INSERT INTO clientes (id, posicion) VALUES ("d", "3,5");
+--INSERT INTO clientes (id, posicion) VALUES ("e", "7,8");
+--INSERT INTO clientes (id, posicion) VALUES ("f", " 13, 14");
 
 CREATE USER 'ec_central'@'%' IDENTIFIED BY 'sd2024_central';
 CREATE USER 'ec_registry'@'%' IDENTIFIED BY 'sd2024_registry';

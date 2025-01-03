@@ -46,11 +46,13 @@ def exportDB():
         ]
 
         # Consultar datos de la tabla de clientes
-        cursor.execute("SELECT id, posicion FROM clientes")
+        cursor.execute("SELECT id, posicion, destino, taxiAsignado FROM clientes")
         clientes = [
             {
                 "id": row[0],
-                "posicion": row[1]
+                "posicion": row[1],
+                "destino": row[2],
+                "taxiAsignado": row[3]
             }
             for row in cursor.fetchall()
         ]
@@ -111,7 +113,7 @@ def obtenerLogs():
             contenido = archivo_log.read()
         return contenido, 200
     else:
-        return "No hay logs disponibles para el día de hoy.", 404
+        return "No hay logs disponibles para el día de hoy.", 200
 
 if __name__ == "__main__":
     comprobarArgumentos(sys.argv)
