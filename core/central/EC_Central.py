@@ -641,8 +641,8 @@ def main():
     hiloLoginTaxis = threading.Thread(target=gestionarLoginTaxis)
     hiloLoginTaxis.start()
 
-    hiloMapa = threading.Thread(target=iniciarMapa, args=(mapa, BROKER_ADDR,))
-    hiloMapa.start()
+    #hiloMapa = threading.Thread(target=iniciarMapa, args=(mapa, BROKER_ADDR,))
+    #hiloMapa.start()
 
     hiloBase = threading.Thread(target=inputBase)
     hiloBase.start()

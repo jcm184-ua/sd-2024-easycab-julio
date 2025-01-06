@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Número de drones que deseas lanzar
-num_drones=7
+num_drones=4
 
 # Ruta al script del dron
 script_path="EC_DE.py"

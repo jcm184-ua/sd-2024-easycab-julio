@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # Número de drones que deseas lanzar
-num_drones=5
+num_drones=4
 
 # Ruta al script del dron
 script_path="EC_Customer.py"
 
 BROKER_IP="localhost"
-BROKER_PORT=20100
+BROKER_PORT=20000
 
 for ((i=0; i<=$num_drones; i++))
 do
