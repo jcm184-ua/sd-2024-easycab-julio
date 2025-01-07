@@ -9,6 +9,10 @@ import time
 from resources.privateKey import BROKER_KEY
 from cryptography.fernet import Fernet
 
+# Ante la duda
+DATABASE_USER = 'ec_central'
+DATABASE_PASSWORD = 'sd2024_central'
+
 SIZE = 20
 TILE_SIZE = 30  # Tamaño de cada celda del mapa
 
@@ -158,15 +162,18 @@ class Map:
     def loguearCliente(self, idCliente):
         if idCliente in self.clientesADesloguear:
             self.clientesADesloguear.remove(idCliente)
-        self.clientesLogueados.append(idCliente)
+        else:
+            self.clientesLogueados.append(idCliente)
+            ejecutarSentenciaBBDD(f"UPDATE clientes SET activo = TRUE WHERE id = {idCliente}", DATABASE_USER, DATABASE_PASSWORD)
+
     
     def desloguearCliente(self, idCliente):
         try:
-            
             self.clientesADesloguear.append(idCliente)
             time.sleep(5)
             if idCliente in self.clientesADesloguear:
                 self.clientesLogueados.remove(idCliente)
+                ejecutarSentenciaBBDD(f"UPDATE clientes SET activo = FALSE WHERE id = {idCliente}", DATABASE_USER, DATABASE_PASSWORD)
         except Exception as e:
             printWarning("Bug, estamos deslogando un cliente que no existe. eso es que estaba logueado pero no añadido a la lista")
 

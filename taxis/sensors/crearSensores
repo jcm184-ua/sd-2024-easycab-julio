@@ -14,11 +14,11 @@ do
     SENSOR_PORT=$((20200 + i))
 
     # Abrir una nueva pestaña/ventana y ejecutar el script del dron
-    gnome-terminal --tab --title="[1] Sensor_$i" -- python3 $script_path $TAXI_IP $SENSOR_PORT
+    gnome-terminal --tab --title="[1] Sensor_1_Taxi_$i" -- python3 $script_path $TAXI_IP $SENSOR_PORT
 
     sleep 1
 
-    #gnome-terminal --tab --title="[2] Sensor_$i" -- python3 $script_path $TAXI_IP $SENSOR_PORT
+    gnome-terminal --tab --title="[2] Sensor_2_Taxi_$i" -- python3 $script_path $TAXI_IP $SENSOR_PORT
 
-    #sleep 1
+    sleep 1
 done
