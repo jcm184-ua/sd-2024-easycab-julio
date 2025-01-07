@@ -46,7 +46,7 @@ def exportDB():
         ]
 
         # Consultar datos de la tabla de clientes
-        cursor.execute("SELECT id, posicion, destino, taxiAsignado FROM clientes")
+        cursor.execute("SELECT id, posicion, destino, taxiAsignado FROM clientes WHERE activo is true")
         clientes = [
             {
                 "id": row[0],
@@ -79,10 +79,6 @@ def exportDB():
     finally:
         # Cerrar la conexión a la base de datos
         conexion.close()
-
-if __name__ == "__main__":
-    print(exportDB())
-
 
 ### API
 @app.route('/estadoActual-mapa', methods=['GET'])
