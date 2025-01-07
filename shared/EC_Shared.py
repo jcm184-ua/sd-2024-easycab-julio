@@ -1,7 +1,6 @@
 from datetime import datetime
 import socket
 from kafka import KafkaConsumer, KafkaProducer
-import json
 import sys
 import mariadb
 import os
@@ -30,32 +29,6 @@ class COLORES_ANSI:
     RED = '\033[91m'
     BACKGROUD_RED = '\033[101m'
     END_C = '\033[0m'
-
-# TODO: Eliminar una vez se vea que ya no es necesario
-"""def printLog(ID, message):
-    if ID == "ALL":
-        IP = "BROADCAST"
-    elif ID == "CENTRAL":
-        IP = "CENTRAL"
-    else:
-        IP = obtenerIP(ID)"""
-
-"""def obtenerIP(ID):
-    conexion, cursor = generarConexionBBDD(DATABASE_USER, DATABASE_PASSWORD)
-
-    try:
-        cursor.execute("SELECT IP FROM taxis WHERE id = %s", (ID,))
-        resultado = cursor.fetchone()
-        conexion.close()
-        if resultado:
-            return resultado['IP']
-        else:
-            printError(f"No se encontró IP para el ID {ID}.")
-            return None
-    except Exception as e:
-        conexion.close()
-        printError(f"Error al obtener IP: {e}")
-        return None """
 
 def printDebug(mensaje):
     print(datetime.now(), f"DEBUG: {mensaje}")
@@ -164,12 +137,12 @@ def publicarMensajeEnTopic(mensaje, topic, broker_addr, key):
     try:
         printInfo(f"Conectando al broker en la dirección ({broker_addr}) como productor.")
         conexion = KafkaProducer(bootstrap_servers=broker_addr)
-        #printDebug(f"Encriptando {mensaje} con la clave {key}.")
+        printInfo(f"Encriptando {mensaje} con la clave {key}.")
         fernet = Fernet(key)
         mensajeEncriptado = fernet.encrypt(mensaje.encode(FORMAT))
-        #printDebug("Mensaje encriptado: " + str(mensajeEncriptado))
+        printInfo("Mensaje encriptado: " + str(mensajeEncriptado))
         conexion.send(topic,(mensajeEncriptado))
-        printInfo(f"Mensaje {mensajeEncriptado} ({mensaje}) publicado en topic {topic}.")
+        printInfo(f"Mensaje {mensajeEncriptado} publicado en topic {topic}.")
         conexion.close()
         printInfo("Desconectado del broker como productor.")
 
@@ -190,7 +163,7 @@ def publicarMensajeEnTopicSilent(mensaje, topic, broker_addr, key):
 
     except Exception as e:
         # Broker no tiene que ser resiliente
-        exitFatal(f"Error al publicar mensaje silenciosamente en el topic: {e}.")
+        exitFatal(f"Error al publicar mensaje slienciosamente en el topic: {e}.")
 
 def generarConexionBBDD(usuario, contrasena):
     try:

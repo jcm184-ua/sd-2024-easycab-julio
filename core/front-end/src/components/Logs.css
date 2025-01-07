@@ -1,11 +1,13 @@
 .logs-container {
-    flex: 1;
-    padding: 20px;
-    background: #272727;
-    border-left: 1px solid rgba(255, 255, 255, 0.1);
-    color: #fff;
-    overflow-y: auto;
-  }
+  flex: 1;
+  padding: 20px;
+  background: #272727;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  overflow-y: auto; /* Permite el scroll vertical */
+  max-height: 400px; /* Altura máxima para el contenedor */
+}
+
   
   .logs-container h2 {
     font-size: 1.5rem;

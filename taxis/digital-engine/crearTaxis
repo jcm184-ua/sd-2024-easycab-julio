@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# Número de drones que deseas lanzar
+num_drones=4
+
+# Ruta al script del dron
+script_path="EC_DE.py"
+
+CENTRAL_IP="localhost"
+CENTRAL_PORT=20100
+BROKER_IP="localhost"
+BROKER_PORT=20000
+REGISTRY_IP="localhost"
+REGISTRY_PORT=20300
+
+for ((i=1; i<=$num_drones; i++))
+do
+    # Calcular el puerto único para cada dron
+    SENSOR_PORT=$((20200 + i))
+
+    # Abrir una nueva pestaña/ventana y ejecutar el script del dron
+    gnome-terminal --tab --title="Taxi_$i" -- python3 $script_path $CENTRAL_IP $CENTRAL_PORT $BROKER_IP $BROKER_PORT $SENSOR_PORT $i $REGISTRY_IP $REGISTRY_PORT
+
+    sleep 1
+done

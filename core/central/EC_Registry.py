@@ -14,7 +14,7 @@ DATABASE_PASSWORD = 'sd2024_registry'
 LISTEN_PORT = None
 
 SERV_CERTIFICATE = './resources/certServ.pem'
-
+    
 app = Flask(__name__)
 
 def comprobarArgumentos(argumentos):
