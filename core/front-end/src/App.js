@@ -1,6 +1,8 @@
 import React from 'react';
 import Mapa from './components/Mapa';
-import Logs from './components/Logs'; // Importamos el nuevo componente
+import Logs from './components/Logs';
+import TablaTaxis from './components/TablaTaxis';
+import TablaClientes from './components/TablaClientes'; // Importa el componente de clientes
 import './App.css';
 
 function App() {
@@ -9,11 +11,17 @@ function App() {
       <header className="header">
         <h1>Mapa de Taxis</h1>
       </header>
+      <div className="tablas-container">
+          <h2>Información General</h2>
+          <TablaTaxis /> {/* Tabla de taxis */}
+          <TablaClientes /> {/* Tabla de clientes */}
+        </div>
       <main className="main-container">
-      <div className="map-logs-container">
+        <div className="map-logs-container">
           <Mapa /> {/* Componente de mapa */}
           <Logs /> {/* Componente de logs */}
         </div>
+        
       </main>
       <footer className="footer">
         <p>&copy; 2024 - EASYCAB - Álvaro && Julio</p>
