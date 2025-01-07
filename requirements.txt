@@ -1,0 +1,9 @@
+kafka-python
+faker
+tkinter
+mariadb
+flask
+flask-cors
+packaging
+requests
+cryptography
