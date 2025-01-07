@@ -60,4 +60,4 @@ def consultarClima():
 if __name__ == "__main__":
     comprobarArgumentos(sys.argv)
     asignarConstantes(sys.argv)
-    app.run(debug=True, port=LISTEN_PORT)
+    app.run(debug=True, host='0.0.0.0', port=LISTEN_PORT)

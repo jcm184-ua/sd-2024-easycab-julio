@@ -327,10 +327,14 @@ def manejarMovimientos():
                         except Exception as e:
                             raise Exception(f"Error al mover hacia el destino. {e}")
 
-                if posX == 1 and posY == 1 and irBase:
+                miPosicion = mapa.getPosition(f"taxi_{ID}").split(",")
+                #printWarning(f" DATOS DEL IF DEL TAXI {ID}: {posX}, {posY}, {miPosicion[0]}, {miPosicion[0]}, {irBase}")
+                #printWarning(f"{posX}{int(posX) == 1} and {posY}-{int(posY) == 1} and {int(miPosicion[0]) == 1} and {int(miPosicion[1]) == 1} and {irBase}")
+                if int(posX) == 1 and int(posY) == 1 and int(miPosicion[0]) == 1 and int(miPosicion[1]) == 1 and irBase:
                     desconectar()
 
                     time.sleep(1)  # Control de la tasa del bucle principal
+                time.sleep(1)
             else:
                 printInfo("Sensores no operativos. No se puede realizar el movimiento.")
                 time.sleep(5)
