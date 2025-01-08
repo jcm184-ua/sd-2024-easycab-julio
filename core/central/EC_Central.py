@@ -31,7 +31,6 @@ DATABASE_PASSWORD = 'sd2024_central'
 
 WEATHER_IP = None
 WEATHER_PORT = None
-FRONT_API_PORT = None
 
 SERV_CERTIFICATE  = './resources/certServ.pem'
 context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -47,8 +46,8 @@ irBase = False
 climaAdverso = False
 
 def comprobarArgumentos(argumentos):
-    if len(argumentos) != 7:
-        exitFatal("Necesito estos argumentos: <LISTEN_PORT> <FRONT_API_PORT> <BROKER_IP> <BROKER_PORT> <WEATHER_IP> <WEATHER_PORT>")
+    if len(argumentos) != 6:
+        exitFatal("Necesito estos argumentos: <LISTEN_PORT> <BROKER_IP> <BROKER_PORT> <WEATHER_IP> <WEATHER_PORT>")
     printInfo("Número de argumentos correcto.")
 
 def asignarConstantes(argumentos):
@@ -57,18 +56,16 @@ def asignarConstantes(argumentos):
     LISTEN_PORT = int(argumentos[1])
     global THIS_ADDR
     THIS_ADDR =  (HOST, LISTEN_PORT)
-    global FRONT_API_PORT
-    FRONT_API_PORT = int(argumentos[2])
     global BROKER_IP
-    BROKER_IP = argumentos[3]
+    BROKER_IP = argumentos[2]
     global BROKER_PORT
-    BROKER_PORT = int(argumentos[4])
+    BROKER_PORT = int(argumentos[3])
     global BROKER_ADDR
     BROKER_ADDR = BROKER_IP+":"+str(BROKER_PORT)
     global WEATHER_IP
-    WEATHER_IP = argumentos[5]
+    WEATHER_IP = argumentos[4]
     global WEATHER_PORT
-    WEATHER_PORT = int(argumentos[6])
+    WEATHER_PORT = int(argumentos[5])
     printInfo("Constantes asignadas.")
 
 def obtenerIP(ID):
