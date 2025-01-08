@@ -10,6 +10,7 @@ from resources.privateKey import BROKER_KEY
 from cryptography.fernet import Fernet
 
 import requests
+import uuid
 
 sys.path.append('../../shared')
 from EC_Shared import *
@@ -30,6 +31,7 @@ ID = None
 REGISTRY_IP = None
 REGISTRY_PORT = None
 API_URL = None
+BROKER_KEY = None
 
 SERV_CERTIFICATE  = './resources/certServ.pem'
 hostname = 'localhost'
@@ -168,8 +170,10 @@ def recibirTokensMapaLogin(socket):
 
 def gestionarBroker():
     global mapa, cltX, cltY, destX, destY, clienteARecoger, idLocalizacion, irBase, clienteRecogido
+    while BROKER_KEY is None:
+        time.sleep(0.5)
     fernet = Fernet(BROKER_KEY)
-
+        
     printInfo(f"Conectando al broker en la dirección ({BROKER_ADDR}) como consumidor.")
     consumidor = conectarBrokerConsumidor(BROKER_ADDR, TOPIC_TAXIS)
     while True:
@@ -396,6 +400,8 @@ def autenticarEnCentral():
                         if camposMensaje[6] != "None":
                             destX, destY = obtenerPosicion(camposMensaje[6], False)
 
+                        global BROKER_KEY
+                        BROKER_KEY = camposMensaje[7].encode('utf-8')
                         # ARRANCAR TODAS LAS COSAS
                         arrancar()
 

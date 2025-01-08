@@ -38,6 +38,7 @@ context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 context.load_cert_chain(SERV_CERTIFICATE, SERV_CERTIFICATE)
 
 BROADCAST_TOKEN = str(uuid.uuid4())
+BROKER_KEY = Fernet.generate_key()
 
 taxisConectados = [] # [1, 2, 3, 5]
 taxisLibres = [] # [2, 3]
@@ -470,7 +471,7 @@ def autenticarTaxi(conexion, direccion):
         taxiBBDD = ejecutarSentenciaBBDD(f"SELECT * FROM taxis WHERE id = {idTaxi}", DATABASE_USER, DATABASE_PASSWORD)
 
 
-    enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][AUTHORIZED][{tokenTaxi}][{BROADCAST_TOKEN}][{taxiBBDD[0][3].split(',')[0]},{taxiBBDD[0][3].split(',')[1]}][{taxiBBDD[0][4]}][{taxiBBDD[0][5]}]")
+    enviarMensajeServidor(conexion, f"[EC_Central->EC_DE_{idTaxi}][AUTHORIZED][{tokenTaxi}][{BROADCAST_TOKEN}][{taxiBBDD[0][3].split(',')[0]},{taxiBBDD[0][3].split(',')[1]}][{taxiBBDD[0][4]}][{taxiBBDD[0][5]}][{BROKER_KEY.decode('utf-8')}]")
     mapa.setPosition(f"taxi_{idTaxi}", taxiBBDD[0][3].split(',')[0], taxiBBDD[0][3].split(',')[1])
     mapa.print()
     
