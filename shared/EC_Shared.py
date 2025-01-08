@@ -49,7 +49,7 @@ def printError(mensaje):
 def exitFatal(mensaje):
     print(datetime.now(), f"{COLORES_ANSI.RED}FATAL: {mensaje}{COLORES_ANSI.END_C}")
     writeLog(datetime.now(), f"FATAL: {mensaje}")
-    os._exit(1)
+    #os._exit(1)
 
 def writeLog(datetimeNow, message):
     fechaActual = datetime.now().strftime("%Y-%m-%d")
