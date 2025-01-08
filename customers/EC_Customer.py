@@ -10,9 +10,6 @@ sys.path.append('../shared')
 from EC_Map import Map
 from EC_Shared import *
 
-from resources.privateKey import BROKER_KEY
-from cryptography.fernet import Fernet
-
 BROKER_IP = None
 BROKER_PORT = None
 BROKER_ADDR = None
@@ -53,14 +50,13 @@ def leerServicios():
 
 def esperarMensaje():
     global enServicio
-    fernet = Fernet(BROKER_KEY)
 
     consumidor = conectarBrokerConsumidor(BROKER_ADDR, TOPIC_CLIENTES)
     while True:
         for mensaje in consumidor:
 
             #printDebug(f"Mensaje recibido: {mensaje.value.decode(FORMAT)}")
-            camposMensaje = re.findall('[^\[\]]+', (fernet.decrypt(mensaje.value)).decode(FORMAT))
+            camposMensaje = re.findall('[^\[\]]+', (mensaje.value).decode(FORMAT))
             if camposMensaje[0] == f"EC_Central->EC_Customer_{ID}":
 
                 if camposMensaje[1] == "OK":
@@ -98,7 +94,7 @@ def evaluarMensaje(mensajeRecibido):
 
 def solicitarServicio(servicio):
     printInfo(f"Procedo a solicitar el servicio {servicio}.")
-    publicarMensajeEnTopic(f"[EC_Customer_{ID}->EC_Central][{servicio}]", TOPIC_CLIENTES, BROKER_ADDR, BROKER_KEY) # (Solicitar servicio
+    publicarMensajePlanoEnTopic(f"[EC_Customer_{ID}->EC_Central][{servicio}]", TOPIC_CLIENTES, BROKER_ADDR) # (Solicitar servicio
 
     esperarMensaje()
     #threading.Thread(target=esperarMensaje).start()

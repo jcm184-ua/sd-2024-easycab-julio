@@ -225,14 +225,13 @@ def ejecutarSentenciaBBDD(sentencia, user, password):
 def gestionarBrokerClientes():
     global diccionarioLocalizaciones
     global taxisLibres, taxisConectados
-    fernet = Fernet(BROKER_KEY)
-
+    
     consumidor = conectarBrokerConsumidor(BROKER_ADDR, TOPIC_CLIENTES) # ,auto_offset_reset='earliest')
 
     try:
         for mensaje in consumidor:
-            printDebug(f"Mensaje recibido en TOPIC_CLIENTES: {(fernet.decrypt(mensaje.value)).decode(FORMAT)}")
-            camposMensaje = re.findall('[^\[\]]+', (fernet.decrypt(mensaje.value)).decode(FORMAT))
+            printDebug(f"Mensaje recibido en TOPIC_CLIENTES: {(mensaje.value).decode(FORMAT)}")
+            camposMensaje = re.findall('[^\[\]]+', (mensaje.value).decode(FORMAT))
 
             if camposMensaje[0].startswith("EC_Central"):
                 pass
@@ -248,11 +247,11 @@ def gestionarBrokerClientes():
                 if mapa.getPosition(f"localizacion_{localizacion}") is None:
                     printWarning(f"La localización {localizacion} no existe. Cancelando servicio a cliente {idCliente}.")
                     mapa.desloguearCliente(f"cliente_{idCliente}")
-                    publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{idCliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR, BROKER_KEY)
+                    publicarMensajePlanoEnTopic(f"[EC_Central->EC_Customer_{idCliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR)
                 elif irBase:
                     printWarning(f"Los taxis están en base. Cancelando servicio a cliente {idCliente}.")
                     mapa.desloguearCliente(f"cliente_{idCliente}")
-                    publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{idCliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR, BROKER_KEY)
+                    publicarMensajePlanoEnTopic(f"[EC_Central->EC_Customer_{idCliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR)
                 else:
                     #ejecutarSentenciaBBDD(f"UPDATE clientes SET IP = '{mensaje.key.decode(FORMAT)}' WHERE id = '{idCliente}'", DATABASE_USER, DATABASE_PASSWORD)
                     printDebug(f"Estado de los taxis (Conectados, Libres): {taxisConectados}, {taxisLibres}.")
@@ -261,12 +260,12 @@ def gestionarBrokerClientes():
                     if len(taxisLibres) < 1:
                         printWarning(f"No hay taxis disponibles. Cancelando servicio a cliente {idCliente}.")
                         mapa.desloguearCliente(f"cliente_{idCliente}")
-                        publicarMensajeEnTopic(f"[EC_Central->EC_Customer_{idCliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR, BROKER_KEY)
+                        publicarMensajePlanoEnTopic(f"[EC_Central->EC_Customer_{idCliente}][KO]", TOPIC_CLIENTES, BROKER_ADDR)
                     else:
                         taxiElegido = taxisLibres.pop()
                         printInfo(f"Asignando servicio del cliente {idCliente} al taxi {taxiElegido}.")
                         mapa.activateTaxi(taxiElegido)
-                        publicarMensajeEnTopic(f"[EC_Central->EC_DE_{taxiElegido}][{BROADCAST_TOKEN}][SERVICIO][{idCliente}->{localizacion}]", TOPIC_TAXIS, BROKER_ADDR, BROKER_KEY)
+                        publicarMensajePlanoEnTopic(f"[EC_Central->EC_DE_{taxiElegido}][{BROADCAST_TOKEN}][SERVICIO][{idCliente}->{localizacion}]", TOPIC_TAXIS, BROKER_ADDR)
 
                         ejecutarSentenciaBBDD(f"UPDATE taxis SET estado = 'enCamino' WHERE id = {taxiElegido}", DATABASE_USER, DATABASE_PASSWORD)
                         ejecutarSentenciaBBDD(f"UPDATE taxis SET cliente = '{idCliente}' WHERE id = {taxiElegido}", DATABASE_USER, DATABASE_PASSWORD)
@@ -274,7 +273,7 @@ def gestionarBrokerClientes():
                         ejecutarSentenciaBBDD(f"UPDATE clientes SET destino = '{localizacion}' WHERE id = '{idCliente}'", DATABASE_USER, DATABASE_PASSWORD)
                         ejecutarSentenciaBBDD(f"UPDATE clientes SET taxiAsignado = '{taxiElegido}' WHERE id = '{idCliente}'", DATABASE_USER, DATABASE_PASSWORD)
 
-                        publicarMensajeEnTopic(f"[EC_DE_{taxiElegido}] Servicio asignado [{idCliente}->{localizacion}]", TOPIC_ERRORES_MAPA, BROKER_ADDR, BROKER_KEY)
+                        publicarMensajePlanoEnTopic(f"[EC_DE_{taxiElegido}] Servicio asignado [{idCliente}->{localizacion}]", TOPIC_ERRORES_MAPA, BROKER_ADDR)
                         printInfo(f"[EC_DE_{taxiElegido}] Servicio asignado [{idCliente}->{localizacion}]")
                         printAud(taxiElegido, f"Servicio asignado [{idCliente}->{localizacion}]")
         else:

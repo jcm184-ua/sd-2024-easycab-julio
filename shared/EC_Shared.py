@@ -133,6 +133,19 @@ def conectarBrokerConsumidor(broker_addr, topic):
         # Broker no tiene que ser resiliente
         exitFatal(f"Error al conectar al broker como consumidor: {e}.")
 
+def publicarMensajePlanoEnTopic(mensaje, topic, broker_addr):
+    try:
+        printInfo(f"Conectando al broker en la dirección ({broker_addr}) como productor.")
+        conexion = KafkaProducer(bootstrap_servers=broker_addr)
+        conexion.send(topic,(mensaje.encode(FORMAT)))
+        printInfo(f"Mensaje {mensaje.encode(FORMAT)} publicado en topic {topic}.")
+        conexion.close()
+        printInfo("Desconectado del broker como productor.")
+
+    except Exception as e:
+        # Broker no tiene que ser resiliente
+        exitFatal(f"Error al publicar mensaje en el topic: {e.__class__}, {e}.")
+
 def publicarMensajeEnTopic(mensaje, topic, broker_addr, key):
     try:
         printInfo(f"Conectando al broker en la dirección ({broker_addr}) como productor.")
