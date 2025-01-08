@@ -164,7 +164,7 @@ class Map:
             self.clientesADesloguear.remove(idCliente)
         else:
             self.clientesLogueados.append(idCliente)
-            ejecutarSentenciaBBDD(f"UPDATE clientes SET activo = TRUE WHERE id = {idCliente}", DATABASE_USER, DATABASE_PASSWORD)
+            ejecutarSentenciaBBDD(f"UPDATE clientes SET activo = TRUE WHERE id = '{idCliente}'", DATABASE_USER, DATABASE_PASSWORD)
 
     
     def desloguearCliente(self, idCliente):
@@ -173,7 +173,7 @@ class Map:
             time.sleep(5)
             if idCliente in self.clientesADesloguear:
                 self.clientesLogueados.remove(idCliente)
-                ejecutarSentenciaBBDD(f"UPDATE clientes SET activo = FALSE WHERE id = {idCliente}", DATABASE_USER, DATABASE_PASSWORD)
+                ejecutarSentenciaBBDD(f"UPDATE clientes SET activo = FALSE WHERE id = '{idCliente}'", DATABASE_USER, DATABASE_PASSWORD)
         except Exception as e:
             printWarning("Bug, estamos deslogando un cliente que no existe. eso es que estaba logueado pero no añadido a la lista")
 
