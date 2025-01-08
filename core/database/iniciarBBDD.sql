@@ -19,8 +19,7 @@ CREATE TABLE IF NOT EXISTS clientes (
     posicion VARCHAR(255) NOT NULL default "-,-",
     IP VARCHAR(255),
     destino VARCHAR(255) default NULL CHECK(destino IS NULL or destino = "A" or destino = "B" or destino = "C" or destino = "D" or destino = "E" or destino = "F"),
-    taxiAsignado VARCHAR(255) default NULL,
-    activo BOOLEAN default FALSE
+    taxiAsignado VARCHAR(255) default NULL
 );
 --INSERT INTO taxis (id, posicion) VALUES (1, "1,1");
 --INSERT INTO taxis (id, posicion) VALUES (2, "1,2");
